@@ -47,3 +47,9 @@ flutter run -d <device-id>
 - `lib/features`: Feature-specific code (Auth, Chat, Admin).
 - `lib/main.dart`: Entry point of the application.
 
+## Group Members
+Louvel Rouz M. Hernandez\
+Mark Nerant M. Naca\
+Roxane G. Pionilla\
+Erica Mae B. Recaña\
+Vence M. Santiago
