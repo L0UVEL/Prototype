@@ -1,4 +1,4 @@
-# Mobile Health AI Prototype
+# Mobile Health Suppot With AI Prototype
 
 A Mobile Based Health Support System with an AI Chatbot using Flutter/Dart.
 
