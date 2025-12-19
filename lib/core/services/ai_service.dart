@@ -2,7 +2,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 
 class AIService {
-  static const String _apiKey = 'AIzaSyAQ9qAMjGqURAE1Juh--bV5tRAUvLwsjPg';
+  static const String _apiKey = '';// add your Google AI API key
 
   // List of models to rotate to distribute load/quota usage
   final List<String> _models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
