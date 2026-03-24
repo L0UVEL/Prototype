@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
 import '../../../core/services/announcement_service.dart';
 
 class AnnouncementDetailScreen extends StatelessWidget {
@@ -35,12 +36,28 @@ class AnnouncementDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              DateFormat('MMMM d, y • h:mm a').format(announcement.timestamp),
+              DateFormat(
+                'EEEE, MMMM d, y • h:mm a',
+              ).format(announcement.timestamp),
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
+            if (announcement.imageUrls.isNotEmpty) ...[
+              for (final path in announcement.imageUrls) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    File(path),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              const SizedBox(height: 8),
+            ],
             Text(
               announcement.content,
               style: Theme.of(context).textTheme.bodyLarge,

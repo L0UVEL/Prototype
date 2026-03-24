@@ -1,143 +1,186 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/health_model.dart';
-import '../models/daily_log.dart';
 import '../models/user_model.dart';
 
 class HealthService extends ChangeNotifier {
-  // In-memory storage
-  final Map<String, HealthInfo> _healthProfiles = {};
-  final List<DailyLog> _dailyLogs = [];
-  final List<Appointment> _appointments = [];
-  final List<User> _dummyStudents = [];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  HealthService() {
-    _initializeDummyData();
+  // --- Users / Students ---
+
+  Stream<List<User>> getStudentsStream() {
+    return _firestore
+        .collection('users')
+        .where('role', isEqualTo: 'user')
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            return User(
+              id: doc.id,
+              studentId: data['studentId'] ?? '',
+              email: data['email'] ?? '',
+              firstName: data['firstName'] ?? data['name'] ?? 'Unknown',
+              lastName: data['lastName'] ?? '',
+              roleId: data['roleId'] ?? 'student',
+              role: UserRole.user,
+              program: data['program'],
+            );
+          }).toList();
+        });
   }
 
-  void _initializeDummyData() {
-    // 1. Create Dummy Students
-    _dummyStudents.addAll([
-      User(
-        id: 's1',
-        email: 'juan.delacruz@student.pup.edu.ph',
-        name: 'Juan Dela Cruz',
+  Stream<User> getStudentStream(String id) {
+    return _firestore.collection('users').doc(id).snapshots().map((doc) {
+      if (!doc.exists) {
+        throw Exception('User not found');
+      }
+      final data = doc.data()!;
+      return User(
+        id: doc.id,
+        studentId: data['studentId'] ?? '',
+        email: data['email'] ?? '',
+        firstName: data['firstName'] ?? data['name'] ?? 'Unknown',
+        lastName: data['lastName'] ?? '',
+        roleId: data['roleId'] ?? 'student',
         role: UserRole.user,
-        program: 'BSIT',
-      ),
-      User(
-        id: 's2',
-        email: 'maria.reyes@student.pup.edu.ph',
-        name: 'Maria Reyes',
-        role: UserRole.user,
-        program: 'BSENT',
-      ),
-      User(
-        id: 's3',
-        email: 'jose.santos@student.pup.edu.ph',
-        name: 'Jose Santos',
-        role: UserRole.user,
-        program: 'BEEd',
-      ),
-      User(
-        id: 's4',
-        email: 'ana.gonzales@student.pup.edu.ph',
-        name: 'Ana Gonzales',
-        role: UserRole.user,
-        program: 'BPA',
-      ),
-      User(
-        id: 's5',
-        email: 'pedro.fernandez@student.pup.edu.ph',
-        name: 'Pedro Fernandez',
-        role: UserRole.user,
-        program: 'DOMT',
-      ),
-    ]);
-
-    // 2. Create Dummy Health Profiles
-    _healthProfiles['s1'] = HealthInfo(
-      userId: 's1',
-      height: 170,
-      weight: 65,
-      bloodType: 'O+',
-      conditions: ['Asthma'],
-      allergies: ['Peanuts'],
-      emergencyContactPath: 'Father: 09123456789',
-    );
-    _healthProfiles['s2'] = HealthInfo(
-      userId: 's2',
-      height: 160,
-      weight: 50,
-      bloodType: 'A+',
-      conditions: [],
-      allergies: [],
-      emergencyContactPath: 'Mother: 09987654321',
-    );
-    _healthProfiles['s3'] = HealthInfo(
-      userId: 's3',
-      height: 175,
-      weight: 80,
-      bloodType: 'B-',
-      conditions: ['Hypertension'],
-      allergies: ['Seafood'],
-      emergencyContactPath: 'Wife: 09112233445',
-    );
-    // Students s4 and s5 might have incomplete profiles
-
-    // 3. Create Daily Logs (Simulating Check-ins)
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-
-    // s1: Checked in today, feeling okay
-    _dailyLogs.add(
-      DailyLog(
-        id: 'l1',
-        userId: 's1',
-        date: today,
-        mood: 'Happy',
-        symptoms: [],
-        sleepHours: 8,
-        notes: 'Feeling good',
-      ),
-    );
-
-    // s2: Checked in today, feeling sick
-    _dailyLogs.add(
-      DailyLog(
-        id: 'l2',
-        userId: 's2',
-        date: today,
-        mood: 'Sick',
-        symptoms: ['Fever', 'Cough'],
-        sleepHours: 5,
-        notes: 'Not feeling well',
-      ),
-    );
-
-    // s3: Checked in yesterday (Missed today)
-    _dailyLogs.add(
-      DailyLog(
-        id: 'l3',
-        userId: 's3',
-        date: yesterday,
-        mood: 'Neutral',
-        symptoms: [],
-        sleepHours: 7,
-        notes: '',
-      ),
-    );
-
-    // s4, s5: No logs
+        program: data['program'],
+      );
+    });
   }
 
-  List<User> get allStudents => List.unmodifiable(_dummyStudents);
+  // --- Health Profile ---
 
-  // Helper to determine status
-  // Returns: 'Healthy' (Green), 'Monitor' (Yellow), 'At Risk' (Red), 'No Data' (Grey)
-  Map<String, dynamic> getStudentStatus(String userId) {
-    final logs = getDailyLogs(userId);
+  Stream<HealthProfile?> getHealthProfileStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('health_profile')
+        .doc('main')
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.exists && snapshot.data() != null) {
+            return HealthProfile.fromMap(snapshot.data()!, snapshot.id);
+          }
+          return null;
+        });
+  }
+
+  Future<void> updateHealthProfile(HealthProfile info) async {
+    await _firestore
+        .collection('users')
+        .doc(info.userId) // Ensure we write to userId Auth UID
+        .collection('health_profile')
+        .doc('main')
+        .set(info.toMap());
+  }
+
+  // --- Health Updates ---
+
+  Stream<List<HealthUpdate>> getDailyLogsStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('health_updates')
+        .orderBy('checkinDate', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) => HealthUpdate.fromMap(doc.data(), doc.id))
+              .toList();
+        });
+  }
+
+  Future<void> addDailyLog(HealthUpdate log) async {
+    await _firestore
+        .collection('users')
+        .doc(log.userId) // Use Auth UID for routing!
+        .collection('health_updates')
+        .doc(log.updateId)
+        .set(log.toMap());
+  }
+
+  Future<HealthUpdate?> getLatestLog(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('health_updates')
+          .orderBy('checkinDate', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return HealthUpdate.fromMap(
+          snapshot.docs.first.data(),
+          snapshot.docs.first.id,
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting latest log: $e');
+      return null;
+    }
+  }
+
+  // --- Appointments ---
+
+  Stream<List<Appointment>> getAppointmentsStream({String? userId}) {
+    Query query = _firestore.collection('appointments');
+    if (userId != null) {
+      query = query.where('studentId', isEqualTo: userId);
+    }
+    // Order by date?
+    // query = query.orderBy('dateTime', descending: false);
+
+    return query.snapshots().map((snapshot) {
+      return snapshot.docs
+          .map((doc) => Appointment.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+    });
+  }
+
+  Future<void> addAppointment(
+    String userId,
+    String studentId, // Add custom studentId
+    DateTime dateTime,
+    String reason,
+  ) async {
+    final id = const Uuid().v4();
+    final appointment = Appointment(
+      appointmentId: id,
+      studentId: studentId,
+      userId: userId,
+      adminId: '', // To be filled by admin assigned
+      appointmentDate: dateTime,
+      reasonForVisit: reason,
+      status: 'Pending',
+      createdAt: DateTime.now(),
+    );
+    // Include createdAt for admin notification listening
+    var map = appointment.toMap();
+
+    await _firestore.collection('appointments').doc(id).set(map);
+  }
+
+  Future<void> updateAppointmentStatus(
+    String appointmentId,
+    String status,
+  ) async {
+    await _firestore.collection('appointments').doc(appointmentId).update({
+      'status': status,
+    });
+  }
+
+  Future<void> removeAppointment(String appointmentId) async {
+    await _firestore.collection('appointments').doc(appointmentId).delete();
+  }
+
+  // --- Helpers / Status ---
+
+  // Helper to determine status (Logic preserved)
+  Map<String, dynamic> calculateStudentStatus(List<HealthUpdate> logs) {
     if (logs.isEmpty) {
       return {
         'status': 'No Data',
@@ -146,29 +189,29 @@ class HealthService extends ChangeNotifier {
       };
     }
 
-    // Sort logs by date descending
-    logs.sort((a, b) => b.date.compareTo(a.date));
+    // Sort logs by date descending already done by stream generally, but ensure:
+    logs.sort((a, b) => b.checkinDate.compareTo(a.checkinDate));
     final latestLog = logs.first;
 
     final now = DateTime.now();
     final isToday =
-        latestLog.date.year == now.year &&
-        latestLog.date.month == now.month &&
-        latestLog.date.day == now.day;
+        latestLog.checkinDate.year == now.year &&
+        latestLog.checkinDate.month == now.month &&
+        latestLog.checkinDate.day == now.day;
 
     if (!isToday) {
       return {
         'status': 'Missed Check-in',
         'color': 0xFFFFA000,
-        'description': 'Last check-in: ${_formatDate(latestLog.date)}',
+        'description': 'Last check-in: ${_formatDate(latestLog.checkinDate)}',
       };
     }
 
-    if (latestLog.symptoms.isNotEmpty || latestLog.mood == 'Sick') {
+    if (latestLog.symptoms.isNotEmpty || latestLog.status == 'At Risk') {
       return {
         'status': 'At Risk',
         'color': 0xFFD32F2F,
-        'description': 'Reported symptoms: ${latestLog.symptoms.join(", ")}',
+        'description': 'Reported symptoms: ${latestLog.symptoms}',
       };
     }
 
@@ -181,72 +224,5 @@ class HealthService extends ChangeNotifier {
 
   String _formatDate(DateTime date) {
     return '${date.month}/${date.day}';
-  }
-
-  // Getters
-  List<Appointment> get appointments => List.unmodifiable(_appointments);
-  List<DailyLog> get dailyLogs => List.unmodifiable(_dailyLogs);
-
-  // Health Profile Methods
-  HealthInfo? getHealthProfile(String userId) {
-    return _healthProfiles[userId];
-  }
-
-  void updateHealthProfile(HealthInfo info) {
-    _healthProfiles[info.userId] = info;
-    notifyListeners();
-  }
-
-  // Daily Log Methods
-  List<DailyLog> getDailyLogs(String userId) {
-    return _dailyLogs.where((log) => log.userId == userId).toList();
-  }
-
-  DailyLog? getLatestLog(String userId) {
-    final userLogs = getDailyLogs(userId);
-    if (userLogs.isEmpty) return null;
-    userLogs.sort((a, b) => b.date.compareTo(a.date));
-    return userLogs.first;
-  }
-
-  void addDailyLog(DailyLog log) {
-    _dailyLogs.add(log);
-    notifyListeners();
-  }
-
-  // Appointment Methods
-  List<Appointment> getAppointmentsForUser(String userId) {
-    return _appointments.where((appt) => appt.userId == userId).toList();
-  }
-
-  void addAppointment(String userId, DateTime dateTime, String reason) {
-    final newAppointment = Appointment(
-      id: const Uuid().v4(),
-      userId: userId,
-      dateTime: dateTime,
-      reason: reason,
-    );
-    _appointments.add(newAppointment);
-    notifyListeners();
-  }
-
-  void removeAppointment(String appointmentId) {
-    _appointments.removeWhere((appt) => appt.id == appointmentId);
-    notifyListeners();
-  }
-
-  void updateAppointmentStatus(String appointmentId, String status) {
-    final index = _appointments.indexWhere((appt) => appt.id == appointmentId);
-    if (index != -1) {
-      final oldAppt = _appointments[index];
-      _appointments[index] = Appointment(
-        id: oldAppt.id,
-        userId: oldAppt.userId,
-        dateTime: oldAppt.dateTime,
-        reason: oldAppt.reason,
-        status: status,
-      );
-      notifyListeners();
-    }
   }
 }

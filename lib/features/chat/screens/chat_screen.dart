@@ -7,6 +7,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/services/ai_service.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 
 class ChatMessage {
@@ -39,7 +40,65 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Add welcome message from AI
+    _loadChatHistory();
+  }
+
+  Future<void> _loadChatHistory() async {
+    final authService = context.read<AuthService>();
+    final userId = authService.currentUser?.id;
+
+    if (userId == null) return;
+
+    setState(() {
+      _isTyping = true;
+    });
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('ai_chats')
+          .where('userId', isEqualTo: userId)
+          .orderBy('timestamp', descending: false)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          if (snapshot.docs.isEmpty) {
+            _addWelcomeMessage();
+          } else {
+            for (var doc in snapshot.docs) {
+              final data = doc.data();
+              _messages.add(
+                ChatMessage(
+                  id: doc.id,
+                  text: data['text'],
+                  isUser: data['isUser'],
+                  timestamp:
+                      (data['timestamp'] as Timestamp?)?.toDate() ??
+                      DateTime.now(),
+                ),
+              );
+            }
+          }
+          _isTyping = false;
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint(
+        'NOTICE: Error loading chat history (likely missing index): $e',
+      );
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          _addWelcomeMessage();
+          _isTyping = false;
+        });
+      }
+    }
+  }
+
+  void _addWelcomeMessage() {
     _messages.add(
       ChatMessage(
         id: 'welcome',
@@ -59,6 +118,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
+    final aiService = Provider.of<AIService>(context, listen: false);
     if (_textController.text.trim().isEmpty) return;
 
     final userMessageText = _textController.text;
@@ -84,22 +144,17 @@ class _ChatScreenState extends State<ChatScreen> {
     StringBuffer contextBuffer = StringBuffer();
 
     if (user != null) {
-      final latestLog = healthService.getLatestLog(user.id);
+      final latestLog = await healthService.getLatestLog(user.id);
       if (latestLog != null) {
-        // Only include context if log is from today or very recent (optional, but good for relevance)
-        // For now, we include the latest available log.
         contextBuffer.writeln(
           "System Context (User's latest health check-in):",
         );
         contextBuffer.writeln(
-          "- Date: ${DateFormat('yyyy-MM-dd').format(latestLog.date)}",
+          "- Date: ${DateFormat('yyyy-MM-dd').format(latestLog.checkinDate)}",
         );
-        contextBuffer.writeln("- Mood: ${latestLog.mood}");
+        contextBuffer.writeln("- Status: ${latestLog.status}");
         if (latestLog.symptoms.isNotEmpty) {
-          contextBuffer.writeln("- Symptoms: ${latestLog.symptoms.join(', ')}");
-        }
-        if (latestLog.notes.isNotEmpty) {
-          contextBuffer.writeln("- Notes: ${latestLog.notes}");
+          contextBuffer.writeln("- Symptoms & Notes: ${latestLog.symptoms}");
         }
         contextBuffer.writeln(
           "\nPlease use this context to provide more personalized advice if relevant to the user's query.\n",
@@ -107,15 +162,23 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
 
+    contextBuffer.writeln(
+      "System Instructions: You are the UniHealth AI, a specialized assistant strictly for health-related inquiries. Under no circumstances should you answer questions about programming, math, pop culture, weather, general trivia, or anything unrelated to health, medicine, and well-being.",
+    );
+    contextBuffer.writeln(
+      "If the user asks a question not related to health, you must respond EXACTLY with this phrase and do not elaborate further: \"I'm an AI for health only, Only ask about Health\".",
+    );
+    contextBuffer.writeln("");
+
     final fullPrompt =
         "${contextBuffer.toString()}User Query: $userMessageText";
 
-    final aiService = Provider.of<AIService>(context, listen: false);
-    final response = await aiService.getResponse(fullPrompt);
+    final response = await aiService.getResponse(fullPrompt, userId: user?.id);
 
     if (mounted) {
       setState(() {
         _isTyping = false;
+        // The messages are saved in AIService, so we just add them locally for immediate feedback
         _messages.add(
           ChatMessage(
             id: const Uuid().v4(),
@@ -149,8 +212,8 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthService>().logout();
+            onPressed: () async {
+              await context.read<AuthService>().logout();
             },
           ),
         ],

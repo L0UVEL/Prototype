@@ -4,9 +4,17 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart';
+
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/announcement_service.dart';
 import '../../../core/services/health_service.dart';
+import '../../../core/models/user_model.dart';
+import '../../../core/models/health_model.dart';
+import '../../../core/services/notification_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'admin_user_management_screen.dart';
+import 'admin_analytics_tab.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -16,56 +24,68 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  List<FileSystemEntity> _reports = [];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  DateTime? _dashboardInitTime;
 
   @override
   void initState() {
     super.initState();
-    _loadReports();
+    _dashboardInitTime = DateTime.now();
+    _listenForNewAppointments();
   }
 
-  Future<void> _loadReports() async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      if (directory.existsSync()) {
-        final files = directory.listSync().where((file) {
-          return file.path.endsWith('.csv') &&
-              file.path.contains('Student_Health_Report');
-        }).toList();
+  void _listenForNewAppointments() {
+    final notificationService = context.read<NotificationService>();
 
-        files.sort((a, b) {
-          return b.statSync().modified.compareTo(
-            a.statSync().modified,
-          ); // Newest first
+    // Listen to appointments created after the dashboard was opened
+    _firestore
+        .collection('appointments')
+        .where(
+          'createdAt',
+          isGreaterThan: Timestamp.fromDate(_dashboardInitTime!),
+        )
+        .snapshots()
+        .listen((snapshot) {
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              final data = change.doc.data();
+              if (data != null) {
+                notificationService.showNotification(
+                  id: change.doc.id.hashCode,
+                  title: 'New Appointment',
+                  body:
+                      'A student has requested a new appointment (${data['reason'] ?? 'consultation'}).',
+                );
+              }
+            }
+          }
         });
-
-        if (mounted) {
-          setState(() {
-            _reports = files;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading reports: $e');
-    }
   }
 
   Future<void> _generateReport(BuildContext context) async {
     final healthService = context.read<HealthService>();
-    final students = healthService.allStudents;
+    final studentsStream = healthService.getStudentsStream();
+    final students = await studentsStream.first;
 
     final header =
         'StudentID,Last Name,First Name,Status,Description,Course/Program\n';
-    final rows = students
-        .map((student) {
-          final names = student.name.split(' ');
-          final firstName = names.first;
-          final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
-          final statusData = healthService.getStudentStatus(student.id);
 
-          return '${student.id},"$lastName","$firstName","${statusData['status']}","${statusData['description']}","${student.program ?? ''}"';
-        })
-        .join('\n');
+    List<String> rowList = [];
+
+    for (var student in students) {
+      final logs = await healthService.getDailyLogsStream(student.id).first;
+      final statusData = healthService.calculateStudentStatus(logs);
+
+      final names = student.name.split(' ');
+      final firstName = names.first;
+      final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
+
+      rowList.add(
+        '${student.id},"$lastName","$firstName","${statusData['status']}","${statusData['description']}","${student.program ?? ''}"',
+      );
+    }
+
+    final rows = rowList.join('\n');
 
     final csvContent = header + rows;
 
@@ -81,21 +101,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       await File(path).writeAsString(csvContent);
 
-      await _loadReports(); // Refresh list
-
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Report generated successfully.'),
+          const SnackBar(
+            content: Text('Report generated successfully.'),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-            action: SnackBarAction(
-              label: 'View',
-              textColor: Colors.white,
-              onPressed: () {
-                // Ideally switch tab, but simple feedback is good for now
-              },
-            ),
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -111,97 +122,133 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  Future<void> _exportReport(FileSystemEntity file) async {
-    try {
-      final filename = file.uri.pathSegments.last;
-      String newPath;
-
-      if (Platform.isAndroid) {
-        // Warning: Direct access to /storage/emulated/0/Download might fail on Android 11+
-        // without MANAGE_EXTERNAL_STORAGE or using MediaStore.
-        // For prototype/older androids logic or with WRITE_EXTERNAL_STORAGE legacy request:
-        newPath = '/storage/emulated/0/Download/$filename';
-      } else {
-        // Desktop fallback
-        final downloadsDir = await getDownloadsDirectory();
-        if (downloadsDir != null) {
-          newPath = '${downloadsDir.path}${Platform.pathSeparator}$filename';
-        } else {
-          throw Exception('Could not find downloads directory');
-        }
-      }
-
-      // Copy file
-      await File(file.path).copy(newPath);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Exported to Downloads: $filename'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   void _showAddAnnouncementDialog(BuildContext context) {
     final titleController = TextEditingController();
     final contentController = TextEditingController();
+    List<File> dialogSelectedImages = [];
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Announcement'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Title',
-                border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('New Announcement'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: contentController,
+                      decoration: const InputDecoration(
+                        labelText: 'Content',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    if (dialogSelectedImages.isNotEmpty)
+                      SizedBox(
+                        height: 100,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: dialogSelectedImages.length,
+                          itemBuilder: (context, index) {
+                            return Stack(
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      dialogSelectedImages[index],
+                                      height: 100,
+                                      width: 100,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 8,
+                                  top: 0,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        dialogSelectedImages.removeAt(index);
+                                      });
+                                    },
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black54,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final picker = ImagePicker();
+                        final pickedFiles = await picker.pickMultiImage();
+                        if (pickedFiles.isNotEmpty) {
+                          setState(() {
+                            dialogSelectedImages.addAll(
+                              pickedFiles.map((f) => File(f.path)),
+                            );
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.image),
+                      label: const Text('Add Images'),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: contentController,
-              decoration: const InputDecoration(
-                labelText: 'Content',
-                border: OutlineInputBorder(),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (titleController.text.isNotEmpty &&
-                  contentController.text.isNotEmpty) {
-                context.read<AnnouncementService>().addAnnouncement(
-                  titleController.text,
-                  contentController.text,
-                );
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Post'),
-          ),
-        ],
+              FilledButton(
+                onPressed: () {
+                  if (titleController.text.isNotEmpty &&
+                      contentController.text.isNotEmpty) {
+                    context.read<AnnouncementService>().addAnnouncement(
+                      titleController.text,
+                      contentController.text,
+                      imageUrls: dialogSelectedImages
+                          .map((e) => e.path)
+                          .toList(),
+                    );
+                    Navigator.pop(context);
+                  }
+                },
+                child: const Text('Post'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -220,14 +267,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
             tabs: [
               Tab(icon: Icon(Icons.campaign), text: 'Announcements'),
               Tab(icon: Icon(Icons.people), text: 'Students'),
-              Tab(icon: Icon(Icons.assessment), text: 'Reports'), // New Tab
+              Tab(icon: Icon(Icons.assessment), text: 'Analytics'),
             ],
           ),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
-              onPressed: () {
-                context.read<AuthService>().logout();
+              onPressed: () async {
+                await context.read<AuthService>().logout();
               },
             ),
           ],
@@ -268,6 +315,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 onTap: () {
                   Navigator.pop(context);
                   context.go('/admin/appointments');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_add),
+                title: const Text('Manage Users'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminUserManagementScreen(),
+                    ),
+                  );
                 },
               ),
             ],
@@ -323,7 +383,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             const SizedBox(height: 8),
                             Text(
                               DateFormat(
-                                'MMM d, y HH:mm',
+                                'EEEE, MMM d, y • h:mm a',
                               ).format(announcement.timestamp),
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
@@ -344,27 +404,64 @@ class _AdminDashboardState extends State<AdminDashboard> {
               },
             ),
             // Students Tab
-            Consumer<HealthService>(
-              builder: (context, healthService, child) {
-                final students = healthService.allStudents;
+            // Students Tab
+            StreamBuilder<List<User>>(
+              stream: context.read<HealthService>().getStudentsStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final students = snapshot.data ?? [];
+                final healthService = context.read<HealthService>();
+
                 return Column(
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _generateReport(context),
-                          icon: const Icon(Icons.add_chart),
-                          label: const Text('Generate New Report'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).primaryColor.withValues(alpha: 0.1),
-                            foregroundColor: Theme.of(context).primaryColor,
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              // Use FilledButton for primary action
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const AdminUserManagementScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.person_add),
+                              label: const Text('Register New Student'),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _generateReport(context),
+                              icon: const Icon(Icons.add_chart),
+                              label: const Text('Generate New Report'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).primaryColor.withValues(alpha: 0.1),
+                                foregroundColor: Theme.of(context).primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Expanded(
@@ -373,47 +470,61 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         itemCount: students.length,
                         itemBuilder: (context, index) {
                           final student = students[index];
-                          final statusData = healthService.getStudentStatus(
-                            student.id,
-                          );
-                          final statusColor = Color(statusData['color'] as int);
 
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: statusColor.withValues(
-                                  alpha: 0.2,
-                                ),
-                                child: Icon(Icons.person, color: statusColor),
-                              ),
-                              title: Text(
-                                student.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(student.program ?? "N/A"),
-                                  Text(
-                                    statusData['status'],
-                                    style: TextStyle(
+                          return StreamBuilder<List<HealthUpdate>>(
+                            stream: healthService.getDailyLogsStream(
+                              student.id,
+                            ),
+                            builder: (context, logSnapshot) {
+                              final logs = logSnapshot.data ?? [];
+                              final statusData = healthService
+                                  .calculateStudentStatus(logs);
+                              final statusColor = Color(
+                                statusData['color'] as int,
+                              );
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: statusColor.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    child: Icon(
+                                      Icons.person,
                                       color: statusColor,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    student.name,
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                ],
-                              ),
-                              trailing: const Icon(
-                                Icons.arrow_forward_ios,
-                                size: 16,
-                              ),
-                              onTap: () {
-                                context.go('/admin/student/${student.id}');
-                              },
-                            ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(student.program ?? "N/A"),
+                                      Text(
+                                        statusData['status'],
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                  ),
+                                  onTap: () {
+                                    context.go('/admin/student/${student.id}');
+                                  },
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -422,49 +533,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
             ),
-            // Reports Tab
-            _reports.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.assessment_outlined,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text('No reports generated yet.'),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _reports.length,
-                    itemBuilder: (context, index) {
-                      final file = _reports[index];
-                      final filename = file.uri.pathSegments.last;
-                      final stat = file.statSync();
-
-                      return Card(
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.description,
-                            color: Colors.blue,
-                          ),
-                          title: Text(filename),
-                          subtitle: Text(
-                            'Created: ${DateFormat('MMM d, HH:mm').format(stat.modified)}',
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.file_download),
-                            tooltip: 'Export to Downloads',
-                            onPressed: () => _exportReport(file),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+            // Analytics Tab
+            const AdminAnalyticsTab(),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(

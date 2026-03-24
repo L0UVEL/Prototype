@@ -3,181 +3,215 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/models/health_model.dart';
+import '../../../core/services/notification_service.dart';
 
 class HealthLandingScreen extends StatelessWidget {
   const HealthLandingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final healthService = context.read<HealthService>();
+    final authService = context.read<AuthService>();
+    final user = authService.currentUser;
+
+    if (user == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('My Health')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildDailyCheckInCard(context),
-            const SizedBox(height: 16),
-            _buildMenuCard(
-              context,
-              title: 'Health Profile',
-              subtitle: 'View and update your medical information',
-              icon: Icons.person_outline,
-              onTap: () => context.push('/health-profile'),
-              color: Colors.blue.shade50,
-              iconColor: Colors.blue,
-            ),
-            const SizedBox(height: 16),
-            _buildMenuCard(
-              context,
-              title: 'Appointments',
-              subtitle: 'Schedule and manage clinic visits',
-              icon: Icons.calendar_month_outlined,
-              onTap: () => context.push('/schedule'),
-              color: Colors.orange.shade50,
-              iconColor: Colors.orange,
-            ),
-          ],
-        ),
+      body: StreamBuilder<List<HealthUpdate>>(
+        stream: healthService.getDailyLogsStream(user.id),
+        builder: (context, snapshot) {
+          bool checkedInToday = false;
+          if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+            final latestLog = snapshot.data!.first;
+            final today = DateTime.now();
+            if (latestLog.checkinDate.year == today.year &&
+                latestLog.checkinDate.month == today.month &&
+                latestLog.checkinDate.day == today.day) {
+              checkedInToday = true;
+            }
+          }
+
+          final notificationService = Provider.of<NotificationService>(
+            context,
+            listen: false,
+          );
+
+          if (checkedInToday) {
+            notificationService.cancelCheckInReminder();
+          } else {
+            notificationService.scheduleDailyCheckInReminder();
+          }
+
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildMenuCard(
+                        context,
+                        title: 'Health Profile',
+                        subtitle: 'View and update your medical information',
+                        icon: Icons.person_outline,
+                        onTap: () => context.push('/health-profile'),
+                        color: Colors.blue.shade50,
+                        iconColor: Colors.blue,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildMenuCard(
+                        context,
+                        title: 'Appointments',
+                        subtitle: 'Schedule and manage clinic visits',
+                        icon: Icons.calendar_month_outlined,
+                        onTap: () {
+                          if (checkedInToday) {
+                            context.push('/schedule');
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please complete your Daily Check-in today before booking an appointment.',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                        color: Colors.orange.shade50,
+                        iconColor: Colors.orange,
+                      ),
+                      const Spacer(),
+                      const SizedBox(height: 16),
+                      _buildDailyCheckInCard(context, checkedInToday),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildDailyCheckInCard(BuildContext context) {
-    return Consumer<HealthService>(
-      builder: (context, healthService, _) {
-        final authService = context.read<AuthService>();
-        final user = authService.currentUser;
-        bool checkedInToday = false;
-
-        if (user != null) {
-          final latestLog = healthService.getLatestLog(user.id);
-          if (latestLog != null) {
-            final today = DateTime.now();
-            if (latestLog.date.year == today.year &&
-                latestLog.date.month == today.month &&
-                latestLog.date.day == today.day) {
-              checkedInToday = true;
-            }
-          }
-        }
-
-        return Card(
-          elevation: 4,
-          shadowColor: Colors.black26,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+  Widget _buildDailyCheckInCard(BuildContext context, bool checkedInToday) {
+    return Card(
+      elevation: 4,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        height: 180,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            colors: checkedInToday
+                ? [const Color(0xFF00695C), const Color(0xFF4DB6AC)]
+                : [const Color(0xFF800000), const Color(0xFFB71C1C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Container(
-            height: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                colors: checkedInToday
-                    ? [const Color(0xFF00695C), const Color(0xFF4DB6AC)]
-                    : [const Color(0xFF800000), const Color(0xFFB71C1C)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: checkedInToday
-                      ? Colors.teal.withValues(alpha: 0.3)
-                      : Colors.red.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+          boxShadow: [
+            BoxShadow(
+              color: checkedInToday
+                  ? Colors.teal.withValues(alpha: 0.3)
+                  : Colors.red.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.push('/daily-check-in'),
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: Icon(
+                    checkedInToday
+                        ? Icons.check_circle_outline
+                        : Icons.edit_note,
+                    size: 150,
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              checkedInToday
+                                  ? Icons.check
+                                  : Icons.notifications_active,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              checkedInToday
+                                  ? 'COMPLETED TODAY'
+                                  : 'ACTION REQUIRED',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        checkedInToday ? "You're all set!" : 'Daily Check-in',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        checkedInToday
+                            ? 'Good job tracking your health.'
+                            : 'Track your symptoms & mood.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => context.push('/daily-check-in'),
-                borderRadius: BorderRadius.circular(24),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      right: -20,
-                      top: -20,
-                      child: Icon(
-                        checkedInToday
-                            ? Icons.check_circle_outline
-                            : Icons.edit_note,
-                        size: 150,
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  checkedInToday
-                                      ? Icons.check
-                                      : Icons.notifications_active,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  checkedInToday
-                                      ? 'COMPLETED TODAY'
-                                      : 'ACTION REQUIRED',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            checkedInToday
-                                ? "You're all set!"
-                                : 'Daily Check-in',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            checkedInToday
-                                ? 'Good job tracking your health.'
-                                : 'Track your symptoms & mood.',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 

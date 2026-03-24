@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'config/theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/announcement_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/models/user_model.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/signup_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
 import 'features/admin/screens/admin_dashboard.dart';
 import 'core/services/health_service.dart';
@@ -17,8 +20,17 @@ import 'features/home/screens/student_home_screen.dart';
 import 'features/admin/screens/admin_student_detail_screen.dart';
 import 'features/health/screens/daily_check_in_screen.dart';
 import 'features/shared/screens/announcement_detail_screen.dart';
+import 'features/auth/screens/change_password_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Error loading .env file: $e");
+  }
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -33,6 +45,7 @@ class MyApp extends StatelessWidget {
         Provider(create: (_) => AIService()),
         ChangeNotifierProvider(create: (_) => AnnouncementService()),
         ChangeNotifierProvider(create: (_) => HealthService()),
+        Provider(create: (_) => NotificationService()),
       ],
       child: const AppRouter(),
     );
@@ -53,11 +66,23 @@ class AppRouter extends StatelessWidget {
         final isLoggedIn = authService.isAuthenticated;
         final isLoggingIn = state.uri.toString() == '/login';
 
+        final isSigningUp = state.uri.toString() == '/signup';
+
         if (!isLoggedIn) {
-          return isLoggingIn ? null : '/login';
+          return (isLoggingIn || isSigningUp) ? null : '/login';
         }
 
-        if (isLoggingIn) {
+        // Force password change if required
+        final requiresPasswordChange =
+            authService.currentUser?.requiresPasswordChange ?? false;
+        final isChangingPassword = state.uri.toString() == '/change-password';
+
+        if (requiresPasswordChange) {
+          return isChangingPassword ? null : '/change-password';
+        }
+
+        // Already logged in and doesn't need password change
+        if (isLoggingIn || isChangingPassword) {
           if (authService.currentUser?.role == UserRole.admin) {
             return '/admin';
           } else {
@@ -69,8 +94,16 @@ class AppRouter extends StatelessWidget {
       },
       routes: [
         GoRoute(
+          path: '/signup',
+          builder: (context, state) => const SignUpScreen(),
+        ),
+        GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/change-password',
+          builder: (context, state) => const ChangePasswordScreen(),
         ),
         GoRoute(
           path: '/student-home',
