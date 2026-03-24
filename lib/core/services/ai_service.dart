@@ -1,10 +1,10 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AIService {
   static const String _apiKey = 'AIzaSyAQ9qAMjGqURAE1Juh--bV5tRAUvLwsjPg';
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // List of models to rotate to distribute load/quota usage
   final List<String> _models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
