@@ -4,8 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AIService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  String? get _apiKey => dotenv.env['GEMINI_API_KEY'];
+  static const String _apiKey = 'AIzaSyAQ9qAMjGqURAE1Juh--bV5tRAUvLwsjPg';
 
   // List of models to rotate to distribute load/quota usage
   final List<String> _models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
