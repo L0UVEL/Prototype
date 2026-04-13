@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -46,126 +47,116 @@ class AdminStudentDetailScreen extends StatelessWidget {
                     final statusColor = Color(statusData['color'] as int);
 
                     return Scaffold(
+                      backgroundColor: const Color(0xFFF8F5F2),
                       appBar: AppBar(
                         title: Text(student.name),
-                        backgroundColor: statusColor,
-                        foregroundColor: Colors.white,
                       ),
                       body: SingleChildScrollView(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Header Status
-                            Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 30,
-                                      backgroundColor: statusColor.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                      child: Icon(
-                                        Icons.person,
-                                        size: 30,
-                                        color: statusColor,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            student.name,
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.headlineSmall,
+                            // Header Status Card
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Profile picture or avatar
+                                  _buildProfileAvatar(profile, statusColor),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          student.name,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF2D2D2D),
                                           ),
-                                          Text(
-                                            '${student.program ?? "N/A"} • ${student.email}',
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${student.program ?? "N/A"} • ${student.email}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey.shade600,
                                           ),
-                                          const SizedBox(height: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withValues(
+                                              alpha: 0.1,
                                             ),
-                                            decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            border: Border.all(
                                               color: statusColor.withValues(
-                                                alpha: 0.1,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              border: Border.all(
-                                                color: statusColor,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              statusData['status'],
-                                              style: TextStyle(
-                                                color: statusColor,
-                                                fontWeight: FontWeight.bold,
+                                                alpha: 0.3,
                                               ),
                                             ),
                                           ),
-                                          if (statusData['description'] !=
-                                              null) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              statusData['description'],
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall
-                                                  ?.copyWith(
-                                                    color: Colors.grey[700],
-                                                    fontStyle: FontStyle.italic,
-                                                  ),
+                                          child: Text(
+                                            statusData['status'],
+                                            style: TextStyle(
+                                              color: statusColor,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
                                             ),
-                                          ],
+                                          ),
+                                        ),
+                                        if (statusData['description'] !=
+                                            null) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            statusData['description'],
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade500,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
                                         ],
-                                      ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 24),
 
                             // Health Profile Section
-                            Text(
-                              'Health Profile',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF800000),
-                                  ),
-                            ),
+                            _buildSectionHeader('Health Profile', Icons.medical_information),
                             const SizedBox(height: 12),
                             if (profile != null)
                               _buildProfileCard(context, profile)
                             else
-                              const Card(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Text("No health profile set."),
-                                ),
-                              ),
+                              _buildEmptyCard('No health profile set.'),
 
                             const SizedBox(height: 24),
 
                             // Check-in History
-                            Text(
-                              'Recent Check-ins',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF800000),
-                                  ),
-                            ),
+                            _buildSectionHeader('Recent Check-ins', Icons.timeline),
                             const SizedBox(height: 12),
                             if (logs.isNotEmpty)
                               ListView.builder(
@@ -174,17 +165,11 @@ class AdminStudentDetailScreen extends StatelessWidget {
                                 itemCount: logs.length,
                                 itemBuilder: (context, index) {
                                   final log = logs[index];
-                                  // Sorting is handled in service for status but list might be unsorted
                                   return _buildLogCard(context, log);
                                 },
                               )
                             else
-                              const Card(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Text("No check-ins found."),
-                                ),
-                              ),
+                              _buildEmptyCard('No check-ins found.'),
                           ],
                         ),
                       ),
@@ -199,92 +184,238 @@ class AdminStudentDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard(BuildContext context, HealthProfile profile) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildInfoRow('Health Information', profile.healthInformation),
-            const Divider(),
-            _buildInfoRow('Blood Type', profile.bloodType),
-            const Divider(),
-            _buildInfoRow(
-              'Emergency Contact',
-              profile.emergencyContact.isEmpty
-                  ? 'None'
-                  : profile.emergencyContact,
+  Widget _buildProfileAvatar(HealthProfile? profile, Color statusColor) {
+    final imagePath = profile?.profileImagePath ?? '';
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: statusColor.withValues(alpha: 0.3),
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: imagePath.isNotEmpty
+          ? CircleAvatar(
+              radius: 30,
+              backgroundImage: FileImage(File(imagePath)),
+              onBackgroundImageError: (_, __) {},
+              backgroundColor: statusColor.withValues(alpha: 0.15),
+            )
+          : CircleAvatar(
+              radius: 30,
+              backgroundColor: statusColor.withValues(alpha: 0.15),
+              child: Icon(Icons.person, size: 30, color: statusColor),
             ),
-          ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF800000).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 20, color: const Color(0xFF800000)),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2D2D2D),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyCard(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: 14,
+          color: Colors.grey.shade500,
+          fontStyle: FontStyle.italic,
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isWarning = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
+  Widget _buildProfileCard(BuildContext context, HealthProfile profile) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: isWarning ? Colors.red : Colors.black87,
-              ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow(Icons.info_outline, 'Health Information', profile.healthInformation),
+          const Divider(height: 20),
+          _buildInfoRow(Icons.bloodtype, 'Blood Type', profile.bloodType),
+          if (profile.height.isNotEmpty || profile.weight.isNotEmpty) ...[
+            const Divider(height: 20),
+            _buildInfoRow(
+              Icons.straighten,
+              'Body',
+              '${profile.height.isNotEmpty ? "${profile.height} cm" : "—"} / ${profile.weight.isNotEmpty ? "${profile.weight} kg" : "—"}',
             ),
+          ],
+          if (profile.allergies.isNotEmpty) ...[
+            const Divider(height: 20),
+            _buildInfoRow(
+              Icons.warning_amber_rounded,
+              'Allergies',
+              profile.allergies.join(', '),
+            ),
+          ],
+          if (profile.conditions.isNotEmpty) ...[
+            const Divider(height: 20),
+            _buildInfoRow(
+              Icons.local_hospital,
+              'Conditions',
+              profile.conditions.join(', '),
+            ),
+          ],
+          const Divider(height: 20),
+          _buildInfoRow(
+            Icons.contact_phone,
+            'Emergency Contact',
+            profile.emergencyContact.isEmpty
+                ? 'None'
+                : profile.emergencyContact,
           ),
         ],
       ),
     );
   }
 
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF800000)),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value.isEmpty ? '—' : value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF2D2D2D),
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLogCard(BuildContext context, HealthUpdate log) {
     final isSick = log.status == 'At Risk' || log.symptoms.isNotEmpty;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
           color: isSick
-              ? Colors.red.withValues(alpha: 0.5)
-              : Colors.transparent,
+              ? Colors.red.withValues(alpha: 0.3)
+              : Colors.grey.shade200,
         ),
-        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: ListTile(
-        leading: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              DateFormat('MMM').format(log.checkinDate),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              DateFormat('d').format(log.checkinDate),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 6,
         ),
-        title: Text('${log.status} ${isSick ? "⚠️" : ""}'),
+        leading: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF800000).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                DateFormat('MMM').format(log.checkinDate),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: Color(0xFF800000),
+                ),
+              ),
+              Text(
+                DateFormat('d').format(log.checkinDate),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF800000),
+                ),
+              ),
+            ],
+          ),
+        ),
+        title: Text(
+          '${log.status} ${isSick ? "⚠️" : ""}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (log.symptoms.isNotEmpty)
-              Text(
-                'Symptoms & Notes: ${log.symptoms}',
-                style: const TextStyle(color: Colors.red),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Symptoms & Notes: ${log.symptoms}',
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                ),
               ),
           ],
         ),

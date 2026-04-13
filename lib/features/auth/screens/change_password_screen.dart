@@ -78,7 +78,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   const Icon(
                     Icons.lock_reset_rounded,
                     size: 80,
-                    color: Colors.blue,
+                    color: Color(0xFF800000),
                   ),
                   const SizedBox(height: 24),
                   Text(

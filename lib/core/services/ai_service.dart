@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AIService {
-  static const String _apiKey = 'AIzaSyAQ9qAMjGqURAE1Juh--bV5tRAUvLwsjPg';
+  static const String _apiKey = 'AIzaSyDXn1x5OsI_UpII7q0SyUfVRT9kUbuElg4';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // List of models to rotate to distribute load/quota usage
@@ -102,10 +102,7 @@ class AIService {
     String modelName, {
     List<Content>? history,
   }) async {
-    if (_apiKey == null) {
-      return "API Key not found. Please check your .env file.";
-    }
-    final model = GenerativeModel(model: modelName, apiKey: _apiKey!);
+    final model = GenerativeModel(model: modelName, apiKey: _apiKey);
     final chat = model.startChat(history: history);
     final response = await chat.sendMessage(Content.text(message));
     return response.text ?? "I'm sorry, I couldn't generate a response.";

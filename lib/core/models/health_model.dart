@@ -5,6 +5,11 @@ class HealthProfile {
   final String healthInformation;
   final String bloodType;
   final String emergencyContact;
+  final String height;
+  final String weight;
+  final List<String> allergies;
+  final List<String> conditions;
+  final String profileImagePath;
   final DateTime lastUpdated;
 
   HealthProfile({
@@ -14,6 +19,11 @@ class HealthProfile {
     required this.healthInformation,
     required this.bloodType,
     required this.emergencyContact,
+    this.height = '',
+    this.weight = '',
+    this.allergies = const [],
+    this.conditions = const [],
+    this.profileImagePath = '',
     required this.lastUpdated,
   });
 
@@ -24,6 +34,11 @@ class HealthProfile {
     String? healthInformation,
     String? bloodType,
     String? emergencyContact,
+    String? height,
+    String? weight,
+    List<String>? allergies,
+    List<String>? conditions,
+    String? profileImagePath,
     DateTime? lastUpdated,
   }) {
     return HealthProfile(
@@ -33,6 +48,11 @@ class HealthProfile {
       healthInformation: healthInformation ?? this.healthInformation,
       bloodType: bloodType ?? this.bloodType,
       emergencyContact: emergencyContact ?? this.emergencyContact,
+      height: height ?? this.height,
+      weight: weight ?? this.weight,
+      allergies: allergies ?? this.allergies,
+      conditions: conditions ?? this.conditions,
+      profileImagePath: profileImagePath ?? this.profileImagePath,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }
@@ -45,6 +65,11 @@ class HealthProfile {
       'healthInformation': healthInformation,
       'bloodType': bloodType,
       'emergencyContact': emergencyContact,
+      'height': height,
+      'weight': weight,
+      'allergies': allergies,
+      'conditions': conditions,
+      'profileImagePath': profileImagePath,
       'lastUpdated': lastUpdated.toIso8601String(),
     };
   }
@@ -65,6 +90,11 @@ class HealthProfile {
       healthInformation: map['healthInformation'] ?? '',
       bloodType: map['bloodType'] ?? '',
       emergencyContact: map['emergencyContact'] ?? '',
+      height: map['height'] ?? '',
+      weight: map['weight'] ?? '',
+      allergies: List<String>.from(map['allergies'] ?? []),
+      conditions: List<String>.from(map['conditions'] ?? []),
+      profileImagePath: map['profileImagePath'] ?? '',
       lastUpdated: lu,
     );
   }

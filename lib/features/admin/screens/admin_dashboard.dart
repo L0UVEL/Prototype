@@ -103,10 +103,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Report generated successfully.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('Report generated successfully.'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -132,7 +141,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: const Text('New Announcement'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.campaign, color: Color(0xFF800000)),
+                SizedBox(width: 8),
+                Text(
+                  'New Announcement',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
             content: SizedBox(
               width: double.maxFinite,
               child: SingleChildScrollView(
@@ -142,17 +163,52 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   children: [
                     TextField(
                       controller: titleController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Title',
-                        border: OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.title),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF800000),
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: contentController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Content',
-                        border: OutlineInputBorder(),
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.only(bottom: 48),
+                          child: Icon(Icons.article_outlined),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF800000),
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       maxLines: 3,
                     ),
@@ -169,7 +225,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 Container(
                                   margin: const EdgeInsets.only(right: 8),
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
                                     child: Image.file(
                                       dialogSelectedImages[index],
                                       height: 100,
@@ -206,7 +262,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ),
                       ),
                     const SizedBox(height: 8),
-                    TextButton.icon(
+                    OutlinedButton.icon(
                       onPressed: () async {
                         final picker = ImagePicker();
                         final pickedFiles = await picker.pickMultiImage();
@@ -218,8 +274,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           });
                         }
                       },
-                      icon: const Icon(Icons.image),
+                      icon: const Icon(Icons.image, color: Color(0xFF800000)),
                       label: const Text('Add Images'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF800000),
+                        side: const BorderSide(color: Color(0xFF800000)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -228,6 +291,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade600,
+                ),
                 child: const Text('Cancel'),
               ),
               FilledButton(
@@ -244,6 +310,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     Navigator.pop(context);
                   }
                 },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF800000),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: const Text('Post'),
               ),
             ],
@@ -256,16 +328,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3, // Changed from 2 to 3
+      length: 3,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF8F5F2),
         appBar: AppBar(
-          title: const Text('Admin Dashboard'),
-          bottom: const TabBar(
+          title: const Text(
+            'Admin Dashboard',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          bottom: TabBar(
             labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
+            unselectedLabelColor: Colors.white.withValues(alpha: 0.7),
             indicatorColor: Colors.white,
-            tabs: [
-              Tab(icon: Icon(Icons.campaign), text: 'Announcements'),
+            indicatorWeight: 3,
+            dividerColor: Colors.transparent,
+            tabs: const [
+              Tab(icon: Icon(Icons.campaign), text: 'Announcement'),
               Tab(icon: Icon(Icons.people), text: 'Students'),
               Tab(icon: Icon(Icons.assessment), text: 'Analytics'),
             ],
@@ -273,6 +351,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
               onPressed: () async {
                 await context.read<AuthService>().logout();
               },
@@ -283,34 +362,58 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const DrawerHeader(
-                decoration: BoxDecoration(color: Color(0xFF800000)),
+              DrawerHeader(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF800000), Color(0xFF5C0000)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Icon(
-                      Icons.admin_panel_settings,
-                      color: Colors.white,
-                      size: 48,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.admin_panel_settings,
+                        color: Colors.white,
+                        size: 36,
+                      ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
+                    const SizedBox(height: 12),
+                    const Text(
                       'Admin Panel',
-                      style: TextStyle(color: Colors.white, fontSize: 24),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'PUP Unisan Campus',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.campaign),
+                leading: const Icon(Icons.campaign, color: Color(0xFF800000)),
                 title: const Text('Announcements'),
                 onTap: () {
                   Navigator.pop(context); // Close drawer
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.calendar_month),
+                leading: const Icon(Icons.calendar_month, color: Color(0xFF800000)),
                 title: const Text('Manage Appointments'),
                 onTap: () {
                   Navigator.pop(context);
@@ -318,7 +421,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.person_add),
+                leading: const Icon(Icons.person_add, color: Color(0xFF800000)),
                 title: const Text('Manage Users'),
                 onTap: () {
                   Navigator.pop(context);
@@ -335,7 +438,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
         body: TabBarView(
           children: [
+            // ═══════════════════════════════════════════════════════════════
             // Announcements Tab
+            // ═══════════════════════════════════════════════════════════════
             Consumer<AnnouncementService>(
               builder: (context, announcementService, child) {
                 final announcements = announcementService.announcements;
@@ -345,15 +450,34 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.campaign_outlined,
-                          size: 64,
-                          color: Theme.of(context).colorScheme.secondary,
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF800000).withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.campaign_outlined,
+                            size: 56,
+                            color: Color(0xFF800000),
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        Text(
+                        const Text(
                           'No announcements yet',
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2D2D2D),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Tap + to create your first announcement',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade500,
+                          ),
                         ),
                       ],
                     ),
@@ -365,32 +489,64 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   itemCount: announcements.length,
                   itemBuilder: (context, index) {
                     final announcement = announcements[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         onTap: () {
                           context.push('/announcement/${announcement.id}');
                         },
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF800000).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.campaign,
+                            color: Color(0xFF800000),
+                            size: 22,
+                          ),
+                        ),
                         title: Text(
                           announcement.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 8),
-                            Text(announcement.content),
-                            const SizedBox(height: 8),
-                            Text(
-                              DateFormat(
-                                'EEEE, MMM d, y • h:mm a',
-                              ).format(announcement.timestamp),
-                              style: Theme.of(context).textTheme.bodySmall,
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            DateFormat(
+                              'MMM d, y • h:mm a',
+                            ).format(announcement.timestamp),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
                             ),
-                          ],
+                          ),
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: Colors.grey.shade400,
+                          ),
                           onPressed: () {
                             context
                                 .read<AnnouncementService>()
@@ -403,8 +559,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
             ),
+
+            // ═══════════════════════════════════════════════════════════════
             // Students Tab
-            // Students Tab
+            // ═══════════════════════════════════════════════════════════════
             StreamBuilder<List<User>>(
               stream: context.read<HealthService>().getStudentsStream(),
               builder: (context, snapshot) {
@@ -418,13 +576,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 return Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Column(
                         children: [
                           SizedBox(
                             width: double.infinity,
+                            height: 52,
                             child: FilledButton.icon(
-                              // Use FilledButton for primary action
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -435,29 +593,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 );
                               },
                               icon: const Icon(Icons.person_add),
-                              label: const Text('Register New Student'),
+                              label: const Text(
+                                'Register New Student',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
                               style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
+                                backgroundColor: const Color(0xFF800000),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton.icon(
+                            height: 52,
+                            child: OutlinedButton.icon(
                               onPressed: () => _generateReport(context),
                               icon: const Icon(Icons.add_chart),
-                              label: const Text('Generate New Report'),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
+                              label: const Text(
+                                'Generate New Report',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
                                 ),
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).primaryColor.withValues(alpha: 0.1),
-                                foregroundColor: Theme.of(context).primaryColor,
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF800000),
+                                side: const BorderSide(
+                                  color: Color(0xFF800000),
+                                  width: 1.5,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
                             ),
                           ),
@@ -466,63 +639,125 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         itemCount: students.length,
                         itemBuilder: (context, index) {
                           final student = students[index];
 
-                          return StreamBuilder<List<HealthUpdate>>(
-                            stream: healthService.getDailyLogsStream(
+                          return StreamBuilder<HealthProfile?>(
+                            stream: healthService.getHealthProfileStream(
                               student.id,
                             ),
-                            builder: (context, logSnapshot) {
-                              final logs = logSnapshot.data ?? [];
-                              final statusData = healthService
-                                  .calculateStudentStatus(logs);
-                              final statusColor = Color(
-                                statusData['color'] as int,
-                              );
+                            builder: (context, profileSnap) {
+                              final profilePath =
+                                  profileSnap.data?.profileImagePath ?? '';
 
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: statusColor.withValues(
-                                      alpha: 0.2,
+                              return StreamBuilder<List<HealthUpdate>>(
+                                stream: healthService.getDailyLogsStream(
+                                  student.id,
+                                ),
+                                builder: (context, logSnapshot) {
+                                  final logs = logSnapshot.data ?? [];
+                                  final statusData = healthService
+                                      .calculateStudentStatus(logs);
+                                  final statusColor = Color(
+                                    statusData['color'] as int,
+                                  );
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.04,
+                                          ),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                    child: Icon(
-                                      Icons.person,
-                                      color: statusColor,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    student.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(student.program ?? "N/A"),
-                                      Text(
-                                        statusData['status'],
-                                        style: TextStyle(
-                                          color: statusColor,
+                                    child: ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 6,
+                                      ),
+                                      leading: profilePath.isNotEmpty
+                                          ? CircleAvatar(
+                                              radius: 22,
+                                              backgroundImage: FileImage(
+                                                File(profilePath),
+                                              ),
+                                              onBackgroundImageError:
+                                                  (_, __) {},
+                                              backgroundColor:
+                                                  statusColor.withValues(
+                                                alpha: 0.15,
+                                              ),
+                                            )
+                                          : CircleAvatar(
+                                              radius: 22,
+                                              backgroundColor:
+                                                  statusColor.withValues(
+                                                alpha: 0.15,
+                                              ),
+                                              child: Icon(
+                                                Icons.person,
+                                                color: statusColor,
+                                                size: 22,
+                                              ),
+                                            ),
+                                      title: Text(
+                                        student.name,
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
+                                          fontSize: 15,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.arrow_forward_ios,
-                                    size: 16,
-                                  ),
-                                  onTap: () {
-                                    context.go('/admin/student/${student.id}');
-                                  },
-                                ),
+                                      subtitle: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            student.program ?? "N/A",
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          Text(
+                                            statusData['status'],
+                                            style: TextStyle(
+                                              color: statusColor,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      trailing: Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 16,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                      onTap: () {
+                                        context.go(
+                                          '/admin/student/${student.id}',
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
                               );
                             },
                           );
@@ -533,14 +768,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
             ),
+
+            // ═══════════════════════════════════════════════════════════════
             // Analytics Tab
+            // ═══════════════════════════════════════════════════════════════
             const AdminAnalyticsTab(),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _showAddAnnouncementDialog(context),
           icon: const Icon(Icons.add),
-          label: const Text('Announcement'),
+          label: const Text(
+            'Announcement',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: const Color(0xFF800000),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 4,
         ),
       ),
     );

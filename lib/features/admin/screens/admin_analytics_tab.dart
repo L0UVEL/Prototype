@@ -254,59 +254,70 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // AI Summary Card
-              Card(
-                color: Theme.of(context).colorScheme.primaryContainer,
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF800000), Color(0xFF5C0000)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF800000).withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.auto_awesome,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onPrimaryContainer,
+                            color: Colors.white,
                           ),
                           const SizedBox(width: 8),
-                          Text(
+                          const Text(
                             'AI Health Analysis',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                           if (_isAnalyzing) ...[
                             const Spacer(),
                             const SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             ),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         _aiSummary,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 14,
+                          height: 1.4,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
                         'Updates automatically every minute',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer
-                              .withValues(alpha: 0.7),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 11,
                         ),
                       ),
                     ],
@@ -315,21 +326,22 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
               ),
               const SizedBox(height: 24),
 
+
               // Summary Cards
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.5,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+                childAspectRatio: 1.4,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
                 children: [
                   _buildSummaryCard(
                     context,
                     'Total Students',
                     totalStudents.toString(),
                     Icons.people,
-                    Colors.blue,
+                    const Color(0xFF800000),
                   ),
                   _buildSummaryCard(
                     context,
@@ -487,18 +499,18 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
 
                         return Card(
                           child: ListTile(
+                            onTap: () => _exportReport(file),
                             leading: const Icon(
                               Icons.description,
-                              color: Colors.blue,
+                              color: Color(0xFF800000),
                             ),
                             title: Text(filename),
                             subtitle: Text(
-                              'Created: ${DateFormat('MMM d, HH:mm').format(stat.modified)}',
+                              'Tap to export • ${DateFormat('MMM d, HH:mm').format(stat.modified)}',
                             ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.file_download),
-                              tooltip: 'Export to Downloads',
-                              onPressed: () => _exportReport(file),
+                            trailing: const Icon(
+                              Icons.file_download,
+                              color: Color(0xFF800000),
                             ),
                           ),
                         );
@@ -518,24 +530,49 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
     IconData icon,
     Color color,
   ) {
-    return Card(
-      elevation: 2,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(14.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 28, color: color),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 24, color: color),
+            ),
             const SizedBox(height: 8),
             Text(
               value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              style: TextStyle(
+                fontSize: 24,
                 color: color,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(title, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 2),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
           ],
         ),
       ),

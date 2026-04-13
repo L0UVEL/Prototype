@@ -24,11 +24,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    final now = DateTime.now();
+    final initialDate =
+        now.weekday == DateTime.sunday ? now.add(const Duration(days: 1)) : now;
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: now,
       lastDate: DateTime(2101),
+      selectableDayPredicate: (DateTime date) {
+        return date.weekday != DateTime.sunday;
+      },
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -52,7 +59,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Future<void> _selectTime(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: const TimeOfDay(hour: 8, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -66,10 +73,45 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         );
       },
     );
-    if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
-      });
+
+    if (picked != null) {
+      final int hour = picked.hour;
+      final int minute = picked.minute;
+
+      final bool isMorning =
+          (hour >= 8 && hour < 12) || (hour == 12 && minute == 0);
+      final bool isAfternoon =
+          (hour >= 13 && hour < 16) || (hour == 16 && minute == 0);
+
+      if (isMorning || isAfternoon) {
+        if (picked != _selectedTime) {
+          setState(() {
+            _selectedTime = picked;
+          });
+        }
+      } else {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Clinic hours are 8:00 AM - 12:00 PM and 1:00 PM - 4:00 PM.',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
     }
   }
 

@@ -115,32 +115,46 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Card(
-                  color: const Color(0xFF00BFA5), // Teal/Emerald
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(
-                          Icons.check_circle_outline,
-                          size: 64,
-                          color: Colors.white,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          "You're all set!",
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                  elevation: 4,
+                  shadowColor: const Color(0xFF800000).withValues(alpha: 0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF00695C), Color(0xFF4DB6AC)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 64,
                             color: Colors.white,
                           ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Thanks for checking in today.',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ],
+                          SizedBox(height: 16),
+                          Text(
+                            "You're all set!",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Thanks for checking in today.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -150,14 +164,12 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
         }
 
         return Scaffold(
-          backgroundColor: Colors.grey[50],
+          backgroundColor: const Color(0xFFF8F5F2),
           appBar: AppBar(
             title: const Text('Daily Check-in'),
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            foregroundColor: Colors.black,
           ),
           body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
