@@ -1,6 +1,9 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
 
 // Top-level function for background handling
 @pragma('vm:entry-point')
@@ -16,6 +19,16 @@ class NotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
   Future<void> init() async {
+    // 0. Initialize Timezones
+    tz.initializeTimeZones();
+    try {
+      final tzInfo = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = tzInfo.identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    } catch (e) {
+      debugPrint('Could not get local timezone: $e');
+    }
+
     // 1. Initialize Local Notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -43,6 +56,15 @@ class NotificationService {
       badge: true,
       sound: true,
     );
+
+    // Also request local notification permissions for Android 13+
+    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+        _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (androidImplementation != null) {
+      await androidImplementation.requestNotificationsPermission();
+    }
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       debugPrint('User granted permission');
@@ -102,6 +124,21 @@ class NotificationService {
     );
   }
 
+  tz.TZDateTime _nextInstanceOfTenAM() {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      10,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
   Future<void> scheduleDailyCheckInReminder() async {
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
@@ -116,30 +153,15 @@ class NotificationService {
       android: androidNotificationDetails,
     );
 
-    // Schedule notification for 10:00 AM daily
-    final now = DateTime.now();
-    var scheduledDate = DateTime(now.year, now.month, now.day, 10, 0);
-
-    // If it's already past 10 AM, schedule for tomorrow
-    if (now.isAfter(scheduledDate)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-
-    // In a real app, you would use flutter_local_notifications' zonedSchedule
-    // and timezone package for robust daily scheduling across reboots.
-    // Here we simulate it with a simple delay if it's within the current app session.
-    final delay = scheduledDate.difference(now);
-
-    Future.delayed(delay, () async {
-      await _flutterLocalNotificationsPlugin.show(
-        id: 999,
-        title: 'Daily Check-in Reminder',
-        body: 'Don\'t forget to complete your daily health check-in!',
-        notificationDetails: notificationDetails,
-      );
-      // Re-schedule for next day
-      scheduleDailyCheckInReminder();
-    });
+    await _flutterLocalNotificationsPlugin.zonedSchedule(
+      id: 999,
+      title: 'Daily Check-in Reminder',
+      body: 'Don\'t forget to complete your daily health check-in!',
+      scheduledDate: _nextInstanceOfTenAM(),
+      notificationDetails: notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
   }
 
   Future<void> cancelCheckInReminder() async {

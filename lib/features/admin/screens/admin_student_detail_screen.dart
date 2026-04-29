@@ -350,7 +350,7 @@ class AdminStudentDetailScreen extends StatelessWidget {
   }
 
   Widget _buildLogCard(BuildContext context, HealthUpdate log) {
-    final isSick = log.status == 'At Risk' || log.symptoms.isNotEmpty;
+    final isSick = log.status == 'At Risk';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(

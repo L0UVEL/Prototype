@@ -205,9 +205,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   Text(
                                     'Status: ${appt.status.toUpperCase()}',
                                     style: TextStyle(
-                                      color: appt.status == 'approved'
+                                      color: appt.status.toLowerCase() == 'approved' || appt.status.toLowerCase() == 'completed'
                                           ? Colors.green
-                                          : Colors.orange,
+                                          : appt.status.toLowerCase() == 'cancelled'
+                                              ? Colors.red
+                                              : Colors.orange,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

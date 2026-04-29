@@ -31,11 +31,17 @@ Future<void> main() async {
     debugPrint("Error loading .env file: $e");
   }
   await Firebase.initializeApp();
-  runApp(const MyApp());
+  
+  final notificationService = NotificationService();
+  await notificationService.init();
+
+  runApp(MyApp(notificationService: notificationService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final NotificationService notificationService;
+  
+  const MyApp({super.key, required this.notificationService});
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +51,7 @@ class MyApp extends StatelessWidget {
         Provider(create: (_) => AIService()),
         ChangeNotifierProvider(create: (_) => AnnouncementService()),
         ChangeNotifierProvider(create: (_) => HealthService()),
-        Provider(create: (_) => NotificationService()),
+        Provider.value(value: notificationService),
       ],
       child: const AppRouter(),
     );

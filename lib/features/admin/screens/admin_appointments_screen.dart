@@ -69,20 +69,20 @@ class AdminAppointmentsScreen extends StatelessWidget {
               final appt = appointments[index];
 
               return StreamBuilder<User>(
-                stream: healthService.getStudentStream(appt.studentId),
+                stream: healthService.getStudentStream(appt.userId),
                 builder: (context, userSnapshot) {
                   final user = userSnapshot.data;
                   final displayName = user?.name ?? appt.studentId;
 
                   return StreamBuilder<HealthProfile?>(
-                    stream: healthService.getHealthProfileStream(appt.studentId),
+                    stream: healthService.getHealthProfileStream(appt.userId),
                     builder: (context, profileSnapshot) {
                       final healthProfile = profileSnapshot.data;
 
                       // Status badge color
                       Color statusColor;
                       IconData statusIcon;
-                      switch (appt.status) {
+                      switch (appt.status.toLowerCase()) {
                         case 'approved':
                           statusColor = const Color(0xFF4CAF50);
                           statusIcon = Icons.check_circle;
@@ -233,7 +233,7 @@ class AdminAppointmentsScreen extends StatelessWidget {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  if (appt.status == 'pending') ...[
+                                  if (appt.status.toLowerCase() == 'pending') ...[
                                     OutlinedButton(
                                       onPressed: () {
                                         healthService.updateAppointmentStatus(
@@ -266,7 +266,7 @@ class AdminAppointmentsScreen extends StatelessWidget {
                                       ),
                                       child: const Text('Approve'),
                                     ),
-                                  ] else if (appt.status == 'approved') ...[
+                                  ] else if (appt.status.toLowerCase() == 'approved') ...[
                                     FilledButton.icon(
                                       onPressed: () {
                                         healthService.updateAppointmentStatus(

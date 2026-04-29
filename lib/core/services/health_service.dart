@@ -129,14 +129,15 @@ class HealthService extends ChangeNotifier {
   Stream<List<Appointment>> getAppointmentsStream({String? userId}) {
     Query query = _firestore.collection('appointments');
     if (userId != null) {
-      query = query.where('studentId', isEqualTo: userId);
+      query = query.where('userId', isEqualTo: userId);
     }
-    // Order by date?
-    // query = query.orderBy('dateTime', descending: false);
 
     return query.snapshots().map((snapshot) {
       return snapshot.docs
-          .map((doc) => Appointment.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .map(
+            (doc) =>
+                Appointment.fromMap(doc.data() as Map<String, dynamic>, doc.id),
+          )
           .toList();
     });
   }
@@ -207,7 +208,7 @@ class HealthService extends ChangeNotifier {
       };
     }
 
-    if (latestLog.symptoms.isNotEmpty || latestLog.status == 'At Risk') {
+    if (latestLog.status == 'At Risk') {
       return {
         'status': 'At Risk',
         'color': 0xFFD32F2F,
