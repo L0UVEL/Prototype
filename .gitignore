@@ -12,6 +12,8 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+.vscode/
+problems-report.html
 
 # IntelliJ related
 *.iml
