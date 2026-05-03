@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AIService {
-  static const String _apiKey = 'AIzaSyDXn1x5OsI_UpII7q0SyUfVRT9kUbuElg4';
+  static const String _apiKey = '[GCP_API_KEY]';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // List of models to rotate to distribute load/quota usage
