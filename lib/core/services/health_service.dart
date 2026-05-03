@@ -1,18 +1,30 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/health_model.dart';
 import '../models/user_model.dart';
+import '../utils/image_utils.dart';
 
 class HealthService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// Converts a profile image to base64 for storing in Firestore.
+  Future<String> convertProfileImage(File imageFile) async {
+    try {
+      return await imageFileToBase64(imageFile);
+    } catch (e) {
+      debugPrint('Error converting profile image: $e');
+      rethrow;
+    }
+  }
 
   // --- Users / Students ---
 
   Stream<List<User>> getStudentsStream() {
     return _firestore
         .collection('users')
-        .where('role', isEqualTo: 'user')
+        .where('roleId', isEqualTo: 'student')
         .snapshots()
         .map((snapshot) {
           return snapshot.docs.map((doc) {

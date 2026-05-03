@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'dart:io';
+
 import '../../../core/services/announcement_service.dart';
+import '../../../core/utils/image_utils.dart';
 
 class AnnouncementDetailScreen extends StatelessWidget {
   final String announcementId;
@@ -48,10 +49,17 @@ class AnnouncementDetailScreen extends StatelessWidget {
               for (final path in announcement.imageUrls) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    File(path),
+                  child: Image(
+                    image: resolveProfileImage(path),
                     width: double.infinity,
                     fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 200,
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),

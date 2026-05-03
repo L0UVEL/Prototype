@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/image_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
 import 'dart:async';
@@ -62,7 +62,6 @@ class Announcement {
 
 class AnnouncementService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificationService _notificationService = NotificationService();
 
@@ -117,21 +116,18 @@ class AnnouncementService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<String>> _uploadImages(List<String> filePaths) async {
-    List<String> downloadUrls = [];
+  Future<List<String>> _processImagesToBase64(List<String> filePaths) async {
+    List<String> base64Images = [];
     for (String path in filePaths) {
       try {
         final file = File(path);
-        final fileName = '${const Uuid().v4()}.jpg';
-        final ref = _storage.ref().child('announcement_images/$fileName');
-        await ref.putFile(file);
-        final url = await ref.getDownloadURL();
-        downloadUrls.add(url);
+        final base64Str = await imageFileToBase64(file);
+        base64Images.add(base64Str);
       } catch (e) {
-        debugPrint('Error uploading image: $e');
+        debugPrint('Error converting image to base64: $e');
       }
     }
-    return downloadUrls;
+    return base64Images;
   }
 
   Future<void> addAnnouncement(
@@ -139,10 +135,10 @@ class AnnouncementService extends ChangeNotifier {
     String content, {
     List<String> imageUrls = const [],
   }) async {
-    // 1. Upload images first
+    // 1. Process images to base64 first
     List<String> uploadedUrls = [];
     if (imageUrls.isNotEmpty) {
-      uploadedUrls = await _uploadImages(imageUrls);
+      uploadedUrls = await _processImagesToBase64(imageUrls);
     }
 
     final announcement = Announcement(

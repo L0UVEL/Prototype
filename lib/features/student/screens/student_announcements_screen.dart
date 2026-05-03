@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:io';
+
 import '../../../core/services/announcement_service.dart';
+import '../../../core/utils/image_utils.dart';
 
 class StudentAnnouncementsScreen extends StatelessWidget {
   const StudentAnnouncementsScreen({super.key});
@@ -75,7 +76,7 @@ class StudentAnnouncementsScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Health Office',
+                                    'Campus Nurse',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -128,8 +129,8 @@ class StudentAnnouncementsScreen extends StatelessWidget {
                             width: double.infinity,
                             decoration: BoxDecoration(
                               image: DecorationImage(
-                                image: FileImage(
-                                  File(announcement.imageUrls.first),
+                                image: resolveProfileImage(
+                                  announcement.imageUrls.first,
                                 ),
                                 fit: BoxFit.cover,
                               ),
@@ -147,8 +148,8 @@ class StudentAnnouncementsScreen extends StatelessWidget {
                                   margin: const EdgeInsets.only(right: 4),
                                   decoration: BoxDecoration(
                                     image: DecorationImage(
-                                      image: FileImage(
-                                        File(announcement.imageUrls[imgIndex]),
+                                      image: resolveProfileImage(
+                                        announcement.imageUrls[imgIndex],
                                       ),
                                       fit: BoxFit.cover,
                                     ),
@@ -157,35 +158,7 @@ class StudentAnnouncementsScreen extends StatelessWidget {
                               },
                             ),
                           ),
-                      // Footer/Actions (Like/Comment placeholders)
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.thumb_up_alt_outlined,
-                              size: 20,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Like',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            const SizedBox(width: 24),
-                            Icon(
-                              Icons.comment_outlined,
-                              size: 20,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Comment',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const SizedBox(height: 12),
                     ],
                   ),
                 ),

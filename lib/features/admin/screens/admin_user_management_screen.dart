@@ -4,6 +4,7 @@ import '../../../core/services/auth_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
 import 'dart:io';
+import 'dart:convert';
 
 class AdminUserManagementScreen extends StatefulWidget {
   const AdminUserManagementScreen({super.key});
@@ -17,7 +18,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _programController = TextEditingController();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _studentIdController = TextEditingController();
   bool _isLoading = false;
 
@@ -32,10 +34,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       final authService = context.read<AuthService>();
       final tempPassword = authService.generatePassword();
 
-      final fullName = _nameController.text.trim();
-      final nameParts = fullName.split(' ');
-      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
-      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+      final firstName = _firstNameController.text.trim();
+      final lastName = _lastNameController.text.trim();
 
       final error = await authService.registerUser(
         email: _emailController.text.trim(),
@@ -77,46 +77,20 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF800000).withValues(alpha: 0.06),
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF800000).withValues(alpha: 0.2),
-                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: const Row(
                       children: [
-                        const Text(
-                          'Login Credentials',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF800000),
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SelectableText(
-                          'Email: ${_emailController.text.trim()}',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          'Password: $tempPassword',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                        Icon(Icons.email_outlined, color: Color(0xFF4CAF50), size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Login credentials have been sent to the student\'s email.',
+                            style: TextStyle(fontSize: 13),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Please share these credentials with the student securely.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: Colors.grey.shade600,
                     ),
                   ),
                 ],
@@ -180,8 +154,19 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       });
 
       final file = File(result.files.single.path!);
-      final input = await file.readAsString();
-      final fields = CsvCodec().decode(input);
+      final bytes = await file.readAsBytes();
+      // Try UTF-8 first, fall back to Latin-1 for Excel-exported CSVs
+      String input;
+      try {
+        input = utf8.decode(bytes);
+      } catch (_) {
+        input = latin1.decode(bytes);
+      }
+      // Strip BOM if present
+      if (input.startsWith('\uFEFF')) {
+        input = input.substring(1);
+      }
+      final fields = CsvCodec().decoder.convert(input);
 
       if (fields.isEmpty || fields.length < 2) {
         if (mounted) {
@@ -202,11 +187,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       // Assume row 0 is header. Start from row 1.
       for (int i = 1; i < fields.length; i++) {
         final row = fields[i];
-        if (row.length >= 4) {
+        if (row.length >= 5) {
           final studentId = row[0].toString();
-          final name = row[1].toString();
-          final program = row[2].toString();
-          final email = row[3].toString();
+          final firstName = row[1].toString().trim();
+          final lastName = row[2].toString().trim();
+          final program = row[3].toString();
+          final email = row[4].toString();
 
           // Basic validation
           if (email.isEmpty || !email.contains('@')) {
@@ -216,11 +202,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           }
 
           final tempPassword = authService.generatePassword();
-
-          final fullName = name.trim();
-          final nameParts = fullName.split(' ');
-          final firstName = nameParts.isNotEmpty ? nameParts.first : '';
-          final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
           final error = await authService.registerUser(
             email: email.trim(),
@@ -275,7 +256,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle, color: Color(0xFF4CAF50)),
+                        const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFF4CAF50),
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Successfully registered: $successCount',
@@ -317,7 +301,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         padding: const EdgeInsets.only(bottom: 2),
                         child: Text(
                           e,
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -392,7 +379,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF800000).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFF800000,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
@@ -433,8 +422,11 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'CSV Format: Student ID, Name, Program, Email (Header row required)',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                      'CSV Format: Student ID, First Name, Last Name, Program, Email (Header row required)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -487,7 +479,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF800000).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFF800000,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
@@ -521,12 +515,24 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     const SizedBox(height: 14),
                     _buildTextField(
-                      controller: _nameController,
-                      label: 'Full Name',
+                      controller: _firstNameController,
+                      label: 'First Name',
                       icon: Icons.person,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter full name';
+                          return 'Please enter first name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    _buildTextField(
+                      controller: _lastNameController,
+                      label: 'Last Name',
+                      icon: Icons.person_outline,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter last name';
                         }
                         return null;
                       },
@@ -572,7 +578,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           elevation: 3,
-                          shadowColor: const Color(0xFF800000).withValues(alpha: 0.4),
+                          shadowColor: const Color(
+                            0xFF800000,
+                          ).withValues(alpha: 0.4),
                         ),
                         child: _isLoading
                             ? const SizedBox(
@@ -617,19 +625,14 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon, color: const Color(0xFF800000)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: Color(0xFF800000),
-            width: 2,
-          ),
+          borderSide: const BorderSide(color: Color(0xFF800000), width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),

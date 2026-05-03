@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/utils/image_utils.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/announcement_service.dart';
@@ -694,9 +695,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                       leading: profilePath.isNotEmpty
                                           ? CircleAvatar(
                                               radius: 22,
-                                              backgroundImage: FileImage(
-                                                File(profilePath),
-                                              ),
+                                              backgroundImage:
+                                                  resolveProfileImage(profilePath),
                                               onBackgroundImageError:
                                                   (_, __) {},
                                               backgroundColor:

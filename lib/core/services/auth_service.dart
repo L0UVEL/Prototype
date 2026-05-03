@@ -3,7 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide User;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env/env.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import '../models/user_model.dart';
@@ -14,10 +14,13 @@ class AuthService extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
   User? _currentUser;
   bool _isAuthenticated = false;
+  bool _isInitialized = false;
 
   AuthService() {
     _initAuth();
   }
+
+  bool get isInitialized => _isInitialized;
 
   Future<void> _initAuth() async {
     // Ensure roles table exists
@@ -83,9 +86,11 @@ class AuthService extends ChangeNotifier {
           );
         }
         _isAuthenticated = true;
+        _isInitialized = true;
       } else {
         _currentUser = null;
         _isAuthenticated = false;
+        _isInitialized = true;
       }
       notifyListeners();
     });
@@ -179,24 +184,15 @@ class AuthService extends ChangeNotifier {
     String password,
     String name,
   ) async {
-    final username = dotenv.maybeGet('SMTP_USERNAME');
-    final smtpPassword = dotenv.maybeGet('SMTP_PASSWORD');
-    final server = dotenv.maybeGet('SMTP_SERVER') ?? 'smtp.gmail.com';
-    final port = int.tryParse(dotenv.maybeGet('SMTP_PORT') ?? '587') ?? 587;
+    final username = Env.smtpUsername;
+    final smtpPasswordValue = Env.smtpPassword;
+    final server = Env.smtpServer;
+    final port = Env.smtpPort;
 
-    if (username == null || smtpPassword == null) {
-      debugPrint('SMTP error: Username or Password not found in .env');
-      return;
-    }
-
-    // Clean password (remove spaces if any)
-    final cleanPassword = smtpPassword.replaceAll(' ', '');
+    // Clean password (remove spaces if any) - SMTP passwords from Gmail sometimes have spaces
+    final cleanPassword = smtpPasswordValue.replaceAll(' ', '');
 
     debugPrint('Attempting to send email via $server:$port');
-    debugPrint(
-      'Username: ${username.substring(0, 3)}... (length: ${username.length})',
-    );
-    debugPrint('Password cleaned length: ${cleanPassword.length}');
 
     final smtpServer = SmtpServer(
       server,

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/models/health_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/health_service.dart';
+import '../../../core/utils/image_utils.dart';
 
 class HealthProfileScreen extends StatefulWidget {
   const HealthProfileScreen({super.key});
@@ -22,6 +23,7 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
   late TextEditingController _weightController;
 
   String? _profileImagePath;
+  bool _isNewImagePicked = false;
   final List<String> _selectedAllergies = [];
   final List<String> _selectedConditions = [];
 
@@ -162,6 +164,7 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
       if (pickedFile != null) {
         setState(() {
           _profileImagePath = pickedFile.path;
+          _isNewImagePicked = true;
         });
       }
     }
@@ -176,6 +179,28 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
       final user = authService.currentUser;
 
       if (user != null) {
+        // Convert new image to base64 for storing in Firestore
+        String imagePath = _profileImagePath ?? '';
+        if (_isNewImagePicked && _profileImagePath != null) {
+          try {
+            imagePath = await healthService.convertProfileImage(
+              File(_profileImagePath!),
+            );
+            _isNewImagePicked = false;
+          } catch (e) {
+            if (mounted) {
+              setState(() => _isSaving = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to process image: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return;
+            }
+          }
+        }
+
         final newProfile = HealthProfile(
           profileId: user.id,
           studentId: user.studentId,
@@ -187,7 +212,7 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
           weight: _weightController.text,
           allergies: List<String>.from(_selectedAllergies),
           conditions: List<String>.from(_selectedConditions),
-          profileImagePath: _profileImagePath ?? '',
+          profileImagePath: imagePath,
           lastUpdated: DateTime.now(),
         );
 
@@ -430,7 +455,9 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
                   radius: 56,
                   backgroundColor: const Color(0xFFE0E0E0),
                   backgroundImage: _profileImagePath != null
-                      ? FileImage(File(_profileImagePath!))
+                      ? (_isNewImagePicked
+                          ? FileImage(File(_profileImagePath!))
+                          : resolveProfileImage(_profileImagePath!))
                       : null,
                   child: _profileImagePath == null
                       ? const Icon(

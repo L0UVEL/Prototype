@@ -48,3 +48,6 @@ app.*.map.json
 # Firebase secrets
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
+
+# Envied generated files
+lib/core/env/env.g.dart

@@ -1,7 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/image_utils.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/models/health_model.dart';
 import '../../../core/models/user_model.dart';
@@ -204,7 +204,7 @@ class AdminStudentDetailScreen extends StatelessWidget {
       child: imagePath.isNotEmpty
           ? CircleAvatar(
               radius: 30,
-              backgroundImage: FileImage(File(imagePath)),
+              backgroundImage: resolveProfileImage(imagePath),
               onBackgroundImageError: (_, __) {},
               backgroundColor: statusColor.withValues(alpha: 0.15),
             )

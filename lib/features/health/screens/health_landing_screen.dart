@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +7,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/announcement_service.dart';
 import '../../../core/models/health_model.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../core/utils/image_utils.dart';
 
 class HealthLandingScreen extends StatelessWidget {
   const HealthLandingScreen({super.key});
@@ -136,7 +136,7 @@ class HealthLandingScreen extends StatelessWidget {
                                       return CircleAvatar(
                                         radius: 22,
                                         backgroundImage:
-                                            FileImage(File(profilePath)),
+                                            resolveProfileImage(profilePath),
                                         onBackgroundImageError: (_, __) {},
                                         backgroundColor: Colors.white
                                             .withValues(alpha: 0.2),

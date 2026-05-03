@@ -67,12 +67,16 @@ class AppRouter extends StatelessWidget {
 
     final router = GoRouter(
       refreshListenable: authService,
-      initialLocation: '/login',
+      initialLocation: '/splash',
       redirect: (context, state) {
+        if (!authService.isInitialized) {
+          return '/splash';
+        }
+
         final isLoggedIn = authService.isAuthenticated;
         final isLoggingIn = state.uri.toString() == '/login';
-
         final isSigningUp = state.uri.toString() == '/signup';
+        final isSplash = state.uri.toString() == '/splash';
 
         if (!isLoggedIn) {
           return (isLoggingIn || isSigningUp) ? null : '/login';
@@ -88,7 +92,7 @@ class AppRouter extends StatelessWidget {
         }
 
         // Already logged in and doesn't need password change
-        if (isLoggingIn || isChangingPassword) {
+        if (isLoggingIn || isChangingPassword || isSplash) {
           if (authService.currentUser?.role == UserRole.admin) {
             return '/admin';
           } else {
@@ -99,6 +103,14 @@ class AppRouter extends StatelessWidget {
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/splash',
+          builder: (context, state) => const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        ),
         GoRoute(
           path: '/signup',
           builder: (context, state) => const SignUpScreen(),
