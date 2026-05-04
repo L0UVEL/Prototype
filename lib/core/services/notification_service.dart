@@ -20,6 +20,8 @@ class NotificationService {
 
   Future<void> init() async {
     // 0. Initialize Timezones
+    if (kIsWeb) return;
+    
     tz.initializeTimeZones();
     try {
       final tzInfo = await FlutterTimezone.getLocalTimezone();
@@ -102,6 +104,7 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
+    if (kIsWeb) return;
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
           'announcement_channel',
@@ -140,6 +143,7 @@ class NotificationService {
   }
 
   Future<void> scheduleDailyCheckInReminder() async {
+    if (kIsWeb) return;
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
           'reminder_channel',
@@ -165,6 +169,7 @@ class NotificationService {
   }
 
   Future<void> cancelCheckInReminder() async {
+    if (kIsWeb) return;
     await _flutterLocalNotificationsPlugin.cancel(id: 999);
   }
 }

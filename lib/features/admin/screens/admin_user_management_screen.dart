@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
-import 'dart:io';
 import 'dart:convert';
+import '../../../core/utils/platform_file_helper_stub.dart'
+    if (dart.library.io) '../../../core/utils/platform_file_helper_io.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
   const AdminUserManagementScreen({super.key});
@@ -153,8 +154,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         _isLoading = true;
       });
 
-      final file = File(result.files.single.path!);
-      final bytes = await file.readAsBytes();
+      final pickedFile = result.files.single;
+      final bytes = await getFileBytes(pickedFile);
+
       // Try UTF-8 first, fall back to Latin-1 for Excel-exported CSVs
       String input;
       try {

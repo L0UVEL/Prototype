@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
+import '../../../core/utils/report_helper_stub.dart'
+    if (dart.library.io) '../../../core/utils/report_helper_io.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/services/ai_service.dart';
 
@@ -20,7 +21,7 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
   String _aiSummary = "Analyzing data...";
   String _lastDataHash = "";
   bool _isAnalyzing = false;
-  List<FileSystemEntity> _reports = [];
+  List<dynamic> _reports = [];
 
   // State for analytics
   int _totalStudents = 0;
@@ -56,67 +57,22 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
   }
 
   Future<void> _loadReports() async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      if (directory.existsSync()) {
-        final files = directory.listSync().where((file) {
-          return file.path.endsWith('.csv') &&
-              file.path.contains('Student_Health_Report');
-        }).toList();
-
-        files.sort((a, b) {
-          return b.statSync().modified.compareTo(
-            a.statSync().modified,
-          ); // Newest first
-        });
-
-        if (mounted) {
-          setState(() {
-            _reports = files;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading reports: $e');
+    if (kIsWeb) return;
+    final files = await listHealthReports();
+    if (mounted) {
+      setState(() {
+        _reports = files;
+      });
     }
   }
 
-  Future<void> _exportReport(FileSystemEntity file) async {
-    try {
-      final filename = file.uri.pathSegments.last;
-      String newPath;
-
-      if (Platform.isAndroid) {
-        newPath = '/storage/emulated/0/Download/$filename';
-      } else {
-        // Desktop fallback
-        final downloadsDir = await getDownloadsDirectory();
-        if (downloadsDir != null) {
-          newPath = '${downloadsDir.path}${Platform.pathSeparator}$filename';
-        } else {
-          throw Exception('Could not find downloads directory');
-        }
-      }
-
-      await File(file.path).copy(newPath);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Exported to Downloads: $filename'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  Future<void> _exportReport(dynamic file) async {
+    if (kIsWeb) return;
+    await exportHealthReport(file);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report exported to Downloads')),
+      );
     }
   }
 
@@ -473,49 +429,52 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
                 ),
               ),
 
-              const SizedBox(height: 24),
-              Text(
-                'Generated Reports',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
+              if (!kIsWeb) ...[
+                const SizedBox(height: 24),
+                Text(
+                  'Generated Reports',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+              ],
 
               // Existing Reports List (retained)
-              _reports.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Text('No reports generated yet.'),
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _reports.length,
-                      itemBuilder: (context, index) {
-                        final file = _reports[index];
-                        final filename = file.uri.pathSegments.last;
-                        final stat = file.statSync();
+              if (!kIsWeb)
+                _reports.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Text('No reports generated yet.'),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _reports.length,
+                        itemBuilder: (context, index) {
+                          final report = _reports[index];
+                          final filename = report['name'];
+                          final modified = report['modified'];
 
-                        return Card(
-                          child: ListTile(
-                            onTap: () => _exportReport(file),
-                            leading: const Icon(
-                              Icons.description,
-                              color: Color(0xFF800000),
+                          return Card(
+                            child: ListTile(
+                              onTap: () => _exportReport(report['entity']),
+                              leading: const Icon(
+                                Icons.description,
+                                color: Color(0xFF800000),
+                              ),
+                              title: Text(filename),
+                              subtitle: Text(
+                                'Tap to export • ${DateFormat('MMM d, HH:mm').format(modified)}',
+                              ),
+                              trailing: const Icon(
+                                Icons.file_download,
+                                color: Color(0xFF800000),
+                              ),
                             ),
-                            title: Text(filename),
-                            subtitle: Text(
-                              'Tap to export • ${DateFormat('MMM d, HH:mm').format(stat.modified)}',
-                            ),
-                            trailing: const Icon(
-                              Icons.file_download,
-                              color: Color(0xFF800000),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
             ],
           ),
         );

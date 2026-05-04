@@ -22,6 +22,8 @@ import 'features/health/screens/daily_check_in_screen.dart';
 import 'features/shared/screens/announcement_detail_screen.dart';
 import 'features/auth/screens/change_password_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:flutter/foundation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,10 +32,15 @@ Future<void> main() async {
   } catch (e) {
     debugPrint("Error loading .env file: $e");
   }
-  await Firebase.initializeApp();
+  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   
   final notificationService = NotificationService();
-  await notificationService.init();
+  if (!kIsWeb) {
+    await notificationService.init();
+  }
 
   runApp(MyApp(notificationService: notificationService));
 }

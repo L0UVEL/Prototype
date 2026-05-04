@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +6,8 @@ import '../../../core/models/health_model.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/utils/image_utils.dart';
+import '../../../core/utils/file_image_helper_stub.dart'
+    if (dart.library.io) '../../../core/utils/file_image_helper_io.dart';
 
 class HealthProfileScreen extends StatefulWidget {
   const HealthProfileScreen({super.key});
@@ -183,8 +185,8 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
         String imagePath = _profileImagePath ?? '';
         if (_isNewImagePicked && _profileImagePath != null) {
           try {
-            imagePath = await healthService.convertProfileImage(
-              File(_profileImagePath!),
+            imagePath = await healthService.convertXFileToProfileImage(
+              XFile(_profileImagePath!),
             );
             _isNewImagePicked = false;
           } catch (e) {
@@ -456,7 +458,9 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> {
                   backgroundColor: const Color(0xFFE0E0E0),
                   backgroundImage: _profileImagePath != null
                       ? (_isNewImagePicked
-                          ? FileImage(File(_profileImagePath!))
+                          ? (kIsWeb 
+                              ? NetworkImage(_profileImagePath!) as ImageProvider
+                              : getFileImage(_profileImagePath!))
                           : resolveProfileImage(_profileImagePath!))
                       : null,
                   child: _profileImagePath == null

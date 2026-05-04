@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/image_utils.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'dart:async';
 import 'notification_service.dart';
 
@@ -76,7 +76,9 @@ class AnnouncementService extends ChangeNotifier {
   }
 
   Future<void> _initNotifications() async {
-    await _notificationService.init();
+    if (!kIsWeb) {
+      await _notificationService.init();
+    }
   }
 
   void _initAuthListener() {
@@ -116,12 +118,11 @@ class AnnouncementService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<List<String>> _processImagesToBase64(List<String> filePaths) async {
+  Future<List<String>> _processImagesToBase64(List<XFile> files) async {
     List<String> base64Images = [];
-    for (String path in filePaths) {
+    for (XFile file in files) {
       try {
-        final file = File(path);
-        final base64Str = await imageFileToBase64(file);
+        final base64Str = await xFileToBase64(file);
         base64Images.add(base64Str);
       } catch (e) {
         debugPrint('Error converting image to base64: $e');
@@ -133,12 +134,12 @@ class AnnouncementService extends ChangeNotifier {
   Future<void> addAnnouncement(
     String title,
     String content, {
-    List<String> imageUrls = const [],
+    List<XFile> images = const [],
   }) async {
     // 1. Process images to base64 first
-    List<String> uploadedUrls = [];
-    if (imageUrls.isNotEmpty) {
-      uploadedUrls = await _processImagesToBase64(imageUrls);
+    List<String> base64Images = [];
+    if (images.isNotEmpty) {
+      base64Images = await _processImagesToBase64(images);
     }
 
     final announcement = Announcement(
@@ -146,7 +147,7 @@ class AnnouncementService extends ChangeNotifier {
       title: title,
       content: content,
       timestamp: DateTime.now(),
-      imageUrls: uploadedUrls,
+      imageUrls: base64Images,
       adminId: _auth.currentUser?.uid ?? '',
     );
 
@@ -157,11 +158,13 @@ class AnnouncementService extends ChangeNotifier {
         .set(announcement.toMap());
 
     // Trigger notification
-    await _notificationService.showNotification(
-      id: announcement.id.hashCode,
-      title: 'New Announcement: $title',
-      body: content,
-    );
+    if (!kIsWeb) {
+      await _notificationService.showNotification(
+        id: announcement.id.hashCode,
+        title: 'New Announcement: $title',
+        body: content,
+      );
+    }
 
     // notifyListeners is handled by the stream listener
   }

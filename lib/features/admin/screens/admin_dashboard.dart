@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/utils/image_utils.dart';
+import '../../../core/utils/file_saver/file_saver.dart';
+import '../../../core/utils/file_image_helper_stub.dart'
+    if (dart.library.io) '../../../core/utils/file_image_helper_io.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/announcement_service.dart';
@@ -96,20 +98,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final filename =
           'Student_Health_Report_${DateFormat('yyyyMMdd_HHmmss').format(now)}.csv';
 
-      // Mobile (Android/iOS): Use Application Documents Directory
-      final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}${Platform.pathSeparator}$filename';
-
-      await File(path).writeAsString(csvContent);
+      await saveAndLaunchFile(csvContent, filename);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Report generated successfully.'),
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(kIsWeb ? 'Report downloaded: $filename' : 'Report saved: $filename'),
               ],
             ),
             backgroundColor: const Color(0xFF4CAF50),
@@ -135,7 +133,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showAddAnnouncementDialog(BuildContext context) {
     final titleController = TextEditingController();
     final contentController = TextEditingController();
-    List<File> dialogSelectedImages = [];
+    List<XFile> dialogSelectedImages = [];
 
     showDialog(
       context: context,
@@ -227,12 +225,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   margin: const EdgeInsets.only(right: 8),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
-                                    child: Image.file(
-                                      dialogSelectedImages[index],
-                                      height: 100,
-                                      width: 100,
-                                      fit: BoxFit.cover,
-                                    ),
+                                    child: kIsWeb 
+                                      ? Image.network(
+                                          dialogSelectedImages[index].path,
+                                          height: 100,
+                                          width: 100,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image(
+                                          image: getFileImage(dialogSelectedImages[index].path),
+                                          height: 100,
+                                          width: 100,
+                                          fit: BoxFit.cover,
+                                        ),
                                   ),
                                 ),
                                 Positioned(
@@ -269,9 +274,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         final pickedFiles = await picker.pickMultiImage();
                         if (pickedFiles.isNotEmpty) {
                           setState(() {
-                            dialogSelectedImages.addAll(
-                              pickedFiles.map((f) => File(f.path)),
-                            );
+                            dialogSelectedImages.addAll(pickedFiles);
                           });
                         }
                       },
@@ -304,9 +307,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     context.read<AnnouncementService>().addAnnouncement(
                       titleController.text,
                       contentController.text,
-                      imageUrls: dialogSelectedImages
-                          .map((e) => e.path)
-                          .toList(),
+                      images: dialogSelectedImages,
                     );
                     Navigator.pop(context);
                   }

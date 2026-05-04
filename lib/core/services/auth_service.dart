@@ -160,7 +160,11 @@ class AuthService extends ChangeNotifier {
         });
 
         // Trigger Email Notification (Trigger Email Extension pattern)
-        await sendCredentialsEmail(email, password, firstName);
+        if (!kIsWeb) {
+          await sendCredentialsEmail(email, password, firstName);
+        } else {
+          debugPrint('Skipping SMTP email on web platform.');
+        }
       }
 
       debugPrint('User registered: ${userCredential.user?.uid}');
@@ -309,7 +313,11 @@ class AuthService extends ChangeNotifier {
       }
 
       // 3. Send our own SMTP notification (this is the reliable delivery)
-      await _sendResetInstructionsViaSMTP(email, userName);
+      if (!kIsWeb) {
+        await _sendResetInstructionsViaSMTP(email, userName);
+      } else {
+        debugPrint('Skipping SMTP reset email on web platform.');
+      }
 
       return true;
     } catch (e) {

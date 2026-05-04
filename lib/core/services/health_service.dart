@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
@@ -9,12 +9,12 @@ import '../utils/image_utils.dart';
 class HealthService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Converts a profile image to base64 for storing in Firestore.
-  Future<String> convertProfileImage(File imageFile) async {
+  /// Converts an XFile to base64 for storing in Firestore.
+  Future<String> convertXFileToProfileImage(XFile xFile) async {
     try {
-      return await imageFileToBase64(imageFile);
+      return await xFileToBase64(xFile);
     } catch (e) {
-      debugPrint('Error converting profile image: $e');
+      debugPrint('Error converting XFile profile image: $e');
       rethrow;
     }
   }
