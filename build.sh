@@ -11,7 +11,7 @@ export PATH="$PATH:`pwd`/flutter/bin"
 
 # 3. Enable Web support and Build
 flutter config --enable-web
-flutter build web --release
+flutter build web --release --web-renderer html
 
 # 4. Clean up (Optional, helps keep the build size smaller)
 # rm -rf flutter
