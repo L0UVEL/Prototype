@@ -76,8 +76,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Password reset link sent to $email'),
+                      content: Text('Password reset link sent to $email. Please also check your spam/junk folder.'),
                       backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 5),
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -161,15 +162,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // PUP Logo / Icon
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      width: 88,
+                      height: 88,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.health_and_safety,
-                        size: 56,
-                        color: Colors.white,
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/launcher_icon.png',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

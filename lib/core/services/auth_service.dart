@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -268,19 +269,108 @@ class AuthService extends ChangeNotifier {
   String generatePassword({int length = 8}) {
     const chars =
         'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%&';
+    final random = Random.secure();
     return List.generate(
       length,
-      (index) => chars[DateTime.now().microsecondsSinceEpoch % chars.length],
+      (index) => chars[random.nextInt(chars.length)],
     ).join();
   }
 
+  /// Sends a password reset: fires Firebase Auth's reset email (best-effort)
+  /// and always sends a reliable SMTP notification so the user knows to check
+  /// their inbox/spam for the Firebase reset link.
   Future<bool> sendPasswordResetEmail(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      // 1. Try to look up the user's name (may fail if not authenticated — that's OK)
+      String userName = 'User';
+      try {
+        final querySnapshot = await _firestore
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .limit(1)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          final userData = querySnapshot.docs.first.data();
+          userName = userData['firstName'] ?? userData['name'] ?? 'User';
+        }
+      } catch (e) {
+        // Firestore may deny access for unauthenticated users — that's fine,
+        // we'll just use the default name.
+        debugPrint('Could not look up user name (expected if not logged in): $e');
+      }
+
+      // 2. Send Firebase Auth reset email (best-effort, often goes to spam)
+      try {
+        await _auth.sendPasswordResetEmail(email: email);
+        debugPrint('Firebase reset email sent for $email');
+      } catch (e) {
+        debugPrint('Firebase reset email failed: $e');
+      }
+
+      // 3. Send our own SMTP notification (this is the reliable delivery)
+      await _sendResetInstructionsViaSMTP(email, userName);
+
       return true;
     } catch (e) {
-      debugPrint('Error sending password reset: $e');
+      debugPrint('Error in password reset flow: $e');
       return false;
+    }
+  }
+
+  Future<void> _sendResetInstructionsViaSMTP(String email, String userName) async {
+    final username = Env.smtpUsername;
+    final smtpPasswordValue = Env.smtpPassword;
+    final server = Env.smtpServer;
+    final port = Env.smtpPort;
+
+    final cleanPassword = smtpPasswordValue.replaceAll(' ', '');
+
+    debugPrint('Sending password reset instructions via SMTP to $email');
+
+    final smtpServer = SmtpServer(
+      server,
+      port: port,
+      username: username,
+      password: cleanPassword,
+      ssl: false,
+      allowInsecure: true,
+    );
+
+    final message = Message()
+      ..from = Address(username, 'Health Support System')
+      ..recipients.add(email)
+      ..subject = 'Health Support - Password Reset Request'
+      ..html = '''
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #800000, #600000); padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Password Reset Request</h1>
+          </div>
+          <div style="padding: 24px; background: #fafafa; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 16px;">Hello, <strong>$userName</strong>!</p>
+            <p>We received a request to reset your password for your Health Support account.</p>
+            <p>A password reset link has been sent to your email. Please check both your <strong>inbox</strong> and <strong>spam/junk folder</strong> for an email from <code>noreply@health-support-system-pupuq.firebaseapp.com</code>.</p>
+            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <p style="margin: 0; font-size: 14px;"><strong>Can't find the email?</strong></p>
+              <p style="margin: 8px 0 0 0; font-size: 14px;">Please contact your administrator directly to have your password reset manually.</p>
+            </div>
+            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+            <p style="color: #888; font-size: 12px;">If you did not request a password reset, please ignore this email. Your password will remain unchanged.</p>
+            <p style="color: #888; font-size: 12px;">— Health Support System, PUP Unisan Campus</p>
+          </div>
+        </div>
+      ''';
+
+    try {
+      final sendReport = await send(message, smtpServer);
+      debugPrint('Password reset SMTP email sent: ${sendReport.toString()}');
+    } on MailerException catch (e) {
+      debugPrint('Password reset SMTP email failed: $e');
+      for (var p in e.problems) {
+        debugPrint('Problem: ${p.code}: ${p.msg}');
+      }
+    } catch (e) {
+      debugPrint('Unexpected email error: $e');
     }
   }
 
