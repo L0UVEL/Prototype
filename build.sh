@@ -1,21 +1,30 @@
 #!/bin/bash
+set -ex  # Exit on error and print each command
+
+echo "Current Directory: $(pwd)"
 ls -la
 
 # 1. Download the Flutter SDK
 if [ ! -d "flutter" ]; then
-  echo "Downloading Flutter..."
+  echo "Cloning Flutter SDK..."
   git clone https://github.com/flutter/flutter.git -b stable --depth 1
 fi
 
-# 2. Add Flutter to the Path
-export PATH="$PATH:`pwd`/flutter/bin"
+# 2. Set the Flutter path
+export PATH="$PATH:$(pwd)/flutter/bin"
 
-# 3. Enable Web support and Install dependencies
+# 3. Check Flutter version and config
+echo "Checking Flutter version..."
+flutter --version
+
+echo "Enabling Web..."
 flutter config --enable-web
+
+# 4. Build the web version
+echo "Running pub get..."
 flutter pub get
 
-# 4. Build the Web App
-flutter build web --release --web-renderer html
+echo "Building Web..."
+flutter build web --web-renderer html --release
 
-# 4. Clean up (Optional, helps keep the build size smaller)
-# rm -rf flutter
+echo "Build complete."
