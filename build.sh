@@ -33,4 +33,9 @@ flutter pub run build_runner build --delete-conflicting-outputs
 # 7. Build the web version
 flutter build web --release
 
+# 8. Move build output to 'public' folder (what Vercel expects)
+echo "Moving build output to public/ folder..."
+mkdir -p public
+cp -r build/web/* public/
+
 echo "Build complete."
