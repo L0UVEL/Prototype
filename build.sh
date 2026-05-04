@@ -1,30 +1,24 @@
 #!/bin/bash
-set -ex  # Exit on error and print each command
+set -ex
 
-echo "Current Directory: $(pwd)"
-ls -la
-
-# 1. Download the Flutter SDK
+# 1. Download the Flutter SDK (shallow clone for speed)
 if [ ! -d "flutter" ]; then
-  echo "Cloning Flutter SDK..."
   git clone https://github.com/flutter/flutter.git -b stable --depth 1
 fi
 
 # 2. Set the Flutter path
 export PATH="$PATH:$(pwd)/flutter/bin"
 
-# 3. Check Flutter version and config
-echo "Checking Flutter version..."
-flutter --version
-
-echo "Enabling Web..."
+# 3. Disable the "running as root" warning and enable web
+export BOT=true
 flutter config --enable-web
 
-# 4. Build the web version
-echo "Running pub get..."
-flutter pub get
+# 4. Pre-download web artifacts
+flutter precache --web
 
-echo "Building Web..."
-flutter build web --web-renderer html --release
+# 5. Build the web version
+# Using standard release build (renderer defaults to 'auto')
+flutter pub get
+flutter build web --release
 
 echo "Build complete."
