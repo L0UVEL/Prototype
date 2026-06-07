@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class HealthProfile {
   final String profileId;
   final String studentId;
@@ -185,7 +187,9 @@ class Appointment {
   factory Appointment.fromMap(Map<String, dynamic> map, String id) {
     final adRaw = map['appointmentDate'];
     DateTime ad = DateTime.now();
-    if (adRaw is int) {
+    if (adRaw is Timestamp) {
+      ad = adRaw.toDate();
+    } else if (adRaw is int) {
       ad = DateTime.fromMillisecondsSinceEpoch(adRaw);
     } else if (adRaw is String) {
       ad = DateTime.tryParse(adRaw) ?? DateTime.now();
@@ -193,7 +197,9 @@ class Appointment {
 
     final caRaw = map['createdAt'];
     DateTime ca = DateTime.now();
-    if (caRaw is int) {
+    if (caRaw is Timestamp) {
+      ca = caRaw.toDate();
+    } else if (caRaw is int) {
       ca = DateTime.fromMillisecondsSinceEpoch(caRaw);
     } else if (caRaw is String) {
       ca = DateTime.tryParse(caRaw) ?? DateTime.now();

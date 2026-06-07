@@ -1,18 +1,22 @@
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide User;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import '../env/env.dart';
+import '../models/user_model.dart';
+import 'email_log_service.dart';
+
+// Conditional import: mailer only works on non-web (dart:io)
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
-import '../models/user_model.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final _storage = const FlutterSecureStorage();
   User? _currentUser;
   bool _isAuthenticated = false;
   bool _isInitialized = false;
@@ -115,7 +119,13 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     await _auth.signOut();
-    await _storage.delete(key: 'user_email'); // Clean up legacy storage if any
+    // FlutterSecureStorage may behave differently on web — guard with try-catch
+    try {
+      const storage = FlutterSecureStorage();
+      await storage.delete(key: 'user_email');
+    } catch (e) {
+      debugPrint('Could not clean up secure storage: $e');
+    }
   }
 
   // Admin-only Registration (Creates a user in Firebase)
@@ -131,10 +141,18 @@ class AuthService extends ChangeNotifier {
     FirebaseApp? secondaryApp;
     try {
       // Create user in Firebase Auth using a secondary app to avoid auto-login
-      secondaryApp = await Firebase.initializeApp(
-        name: 'SecondaryApp',
-        options: Firebase.app().options,
-      );
+      // On web, if the secondary app already exists (from a previous registration
+      // in the same session), reuse it instead of crashing.
+      try {
+        secondaryApp = Firebase.app('SecondaryApp');
+        debugPrint('Reusing existing SecondaryApp');
+      } catch (_) {
+        secondaryApp = await Firebase.initializeApp(
+          name: 'SecondaryApp',
+          options: Firebase.app().options,
+        );
+        debugPrint('Created new SecondaryApp');
+      }
 
       final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
       final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
@@ -159,11 +177,50 @@ class AuthService extends ChangeNotifier {
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        // Trigger Email Notification (Trigger Email Extension pattern)
-        if (!kIsWeb) {
-          await sendCredentialsEmail(email, password, firstName);
-        } else {
-          debugPrint('Skipping SMTP email on web platform.');
+        // Build the email HTML for logging
+        final emailHtml = '''
+          <h1>Welcome, $firstName!</h1>
+          <p>Your account has been created by the administrator.</p>
+          <p><strong>Login Credentials:</strong></p>
+          <ul>
+            <li><strong>Email:</strong> $email</li>
+            <li><strong>Temporary Password:</strong> $password</li>
+          </ul>
+          <p>Please log in and change your password immediately.</p>
+        ''';
+        final emailSubject = 'Welcome to Health Support - Your Login Credentials';
+
+        // Send email via SMTP (non-web) or Vercel API (web) and log to Firestore
+        try {
+          if (!kIsWeb) {
+            await _sendCredentialsEmailViaSMTP(email, password, firstName);
+          } else {
+            await _sendEmailViaVercelAPI(
+              to: email,
+              subject: emailSubject,
+              htmlBody: emailHtml,
+            );
+          }
+          // Log as sent
+          await EmailLogService.logEmail(
+            to: email,
+            subject: emailSubject,
+            htmlBody: emailHtml,
+            type: 'credentials',
+            sentBy: _auth.currentUser?.uid ?? 'system',
+            status: 'sent',
+          );
+        } catch (e) {
+          // Log as failed
+          await EmailLogService.logEmail(
+            to: email,
+            subject: emailSubject,
+            htmlBody: emailHtml,
+            type: 'credentials',
+            sentBy: _auth.currentUser?.uid ?? 'system',
+            status: 'failed',
+            error: e.toString(),
+          );
         }
       }
 
@@ -175,16 +232,21 @@ class AuthService extends ChangeNotifier {
       return null; // Success
     } on FirebaseAuthException catch (e) {
       debugPrint('Error registering user: ${e.message}');
-      if (secondaryApp != null) await secondaryApp.delete();
+      if (secondaryApp != null) {
+        try { await secondaryApp.delete(); } catch (_) {}
+      }
       return e.message;
     } catch (e) {
       debugPrint('Error registering user: $e');
-      if (secondaryApp != null) await secondaryApp.delete();
+      if (secondaryApp != null) {
+        try { await secondaryApp.delete(); } catch (_) {}
+      }
       return e.toString();
     }
   }
 
-  Future<void> sendCredentialsEmail(
+  /// Internal: sends credentials via SMTP (non-web only).
+  Future<void> _sendCredentialsEmailViaSMTP(
     String email,
     String password,
     String name,
@@ -225,17 +287,8 @@ class AuthService extends ChangeNotifier {
           <p>Please log in and change your password immediately.</p>
         ''';
 
-    try {
-      final sendReport = await send(message, smtpServer);
-      debugPrint('Message sent: ${sendReport.toString()}');
-    } on MailerException catch (e) {
-      debugPrint('Message not sent. Error: $e');
-      for (var p in e.problems) {
-        debugPrint('Problem: ${p.code}: ${p.msg}');
-      }
-    } catch (e) {
-      debugPrint('Unexpected email error: $e');
-    }
+    final sendReport = await send(message, smtpServer);
+    debugPrint('Message sent: ${sendReport.toString()}');
   }
 
   Future<bool> changePassword(String newPassword) async {
@@ -283,6 +336,7 @@ class AuthService extends ChangeNotifier {
   /// Sends a password reset: fires Firebase Auth's reset email (best-effort)
   /// and always sends a reliable SMTP notification so the user knows to check
   /// their inbox/spam for the Firebase reset link.
+  /// Also logs the email to Firestore.
   Future<bool> sendPasswordResetEmail(String email) async {
     try {
       // 1. Try to look up the user's name (may fail if not authenticated — that's OK)
@@ -312,11 +366,41 @@ class AuthService extends ChangeNotifier {
         debugPrint('Firebase reset email failed: $e');
       }
 
-      // 3. Send our own SMTP notification (this is the reliable delivery)
-      if (!kIsWeb) {
-        await _sendResetInstructionsViaSMTP(email, userName);
-      } else {
-        debugPrint('Skipping SMTP reset email on web platform.');
+      // Build the email content for logging
+      final emailSubject = 'Health Support - Password Reset Request';
+      final emailHtml = _buildResetEmailHtml(userName);
+
+      // 3. Send SMTP notification (non-web) or Vercel API (web) and log to Firestore
+      try {
+        if (!kIsWeb) {
+          await _sendResetInstructionsViaSMTP(email, userName);
+        } else {
+          await _sendEmailViaVercelAPI(
+            to: email,
+            subject: emailSubject,
+            htmlBody: emailHtml,
+          );
+        }
+        // Log as sent
+        await EmailLogService.logEmail(
+          to: email,
+          subject: emailSubject,
+          htmlBody: emailHtml,
+          type: 'password_reset',
+          sentBy: _auth.currentUser?.uid ?? 'system',
+          status: 'sent',
+        );
+      } catch (e) {
+        // Log as failed
+        await EmailLogService.logEmail(
+          to: email,
+          subject: emailSubject,
+          htmlBody: emailHtml,
+          type: 'password_reset',
+          sentBy: _auth.currentUser?.uid ?? 'system',
+          status: 'failed',
+          error: e.toString(),
+        );
       }
 
       return true;
@@ -324,6 +408,28 @@ class AuthService extends ChangeNotifier {
       debugPrint('Error in password reset flow: $e');
       return false;
     }
+  }
+
+  String _buildResetEmailHtml(String userName) {
+    return '''
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #800000, #600000); padding: 24px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Password Reset Request</h1>
+        </div>
+        <div style="padding: 24px; background: #fafafa; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="font-size: 16px;">Hello, <strong>$userName</strong>!</p>
+          <p>We received a request to reset your password for your Health Support account.</p>
+          <p>A password reset link has been sent to your email. Please check both your <strong>inbox</strong> and <strong>spam/junk folder</strong> for an email from <code>noreply@health-support-system-pupuq.firebaseapp.com</code>.</p>
+          <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 0; font-size: 14px;"><strong>Can't find the email?</strong></p>
+            <p style="margin: 8px 0 0 0; font-size: 14px;">Please contact your administrator directly to have your password reset manually.</p>
+          </div>
+          <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+          <p style="color: #888; font-size: 12px;">If you did not request a password reset, please ignore this email. Your password will remain unchanged.</p>
+          <p style="color: #888; font-size: 12px;">— Health Support System, PUP Unisan Campus</p>
+        </div>
+      </div>
+    ''';
   }
 
   Future<void> _sendResetInstructionsViaSMTP(String email, String userName) async {
@@ -349,37 +455,42 @@ class AuthService extends ChangeNotifier {
       ..from = Address(username, 'Health Support System')
       ..recipients.add(email)
       ..subject = 'Health Support - Password Reset Request'
-      ..html = '''
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #800000, #600000); padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 22px;">Password Reset Request</h1>
-          </div>
-          <div style="padding: 24px; background: #fafafa; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 12px 12px;">
-            <p style="font-size: 16px;">Hello, <strong>$userName</strong>!</p>
-            <p>We received a request to reset your password for your Health Support account.</p>
-            <p>A password reset link has been sent to your email. Please check both your <strong>inbox</strong> and <strong>spam/junk folder</strong> for an email from <code>noreply@health-support-system-pupuq.firebaseapp.com</code>.</p>
-            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 16px 0;">
-              <p style="margin: 0; font-size: 14px;"><strong>Can't find the email?</strong></p>
-              <p style="margin: 8px 0 0 0; font-size: 14px;">Please contact your administrator directly to have your password reset manually.</p>
-            </div>
-            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-            <p style="color: #888; font-size: 12px;">If you did not request a password reset, please ignore this email. Your password will remain unchanged.</p>
-            <p style="color: #888; font-size: 12px;">— Health Support System, PUP Unisan Campus</p>
-          </div>
-        </div>
-      ''';
+      ..html = _buildResetEmailHtml(userName);
 
-    try {
-      final sendReport = await send(message, smtpServer);
-      debugPrint('Password reset SMTP email sent: ${sendReport.toString()}');
-    } on MailerException catch (e) {
-      debugPrint('Password reset SMTP email failed: $e');
-      for (var p in e.problems) {
-        debugPrint('Problem: ${p.code}: ${p.msg}');
-      }
-    } catch (e) {
-      debugPrint('Unexpected email error: $e');
+    final sendReport = await send(message, smtpServer);
+    debugPrint('Password reset SMTP email sent: ${sendReport.toString()}');
+  }
+
+  /// Sends an email via Vercel Serverless API (web only).
+  Future<void> _sendEmailViaVercelAPI({
+    required String to,
+    required String subject,
+    required String htmlBody,
+  }) async {
+    final origin = Uri.base.origin;
+    final apiUrl = '$origin/api/send-email';
+
+    debugPrint('Attempting to send email via Vercel API: $apiUrl');
+
+    final cleanPassword = Env.smtpPassword.replaceAll(' ', '');
+
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $cleanPassword',
+      },
+      body: jsonEncode({
+        'to': to,
+        'subject': subject,
+        'htmlBody': htmlBody,
+      }),
+    ).timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      throw Exception('Vercel API error (${response.statusCode}): ${response.body}');
     }
+    debugPrint('Email sent successfully via Vercel API');
   }
 
   Future<void> _ensureRolesExist() async {

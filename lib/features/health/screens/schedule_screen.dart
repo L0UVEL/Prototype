@@ -52,67 +52,141 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        _selectedTime = null;
       });
     }
   }
 
+  final List<TimeOfDay> _availableSlots = [
+    const TimeOfDay(hour: 8, minute: 0),
+    const TimeOfDay(hour: 8, minute: 30),
+    const TimeOfDay(hour: 9, minute: 0),
+    const TimeOfDay(hour: 9, minute: 30),
+    const TimeOfDay(hour: 10, minute: 0),
+    const TimeOfDay(hour: 10, minute: 30),
+    const TimeOfDay(hour: 11, minute: 0),
+    const TimeOfDay(hour: 11, minute: 30),
+    const TimeOfDay(hour: 13, minute: 0),
+    const TimeOfDay(hour: 13, minute: 30),
+    const TimeOfDay(hour: 14, minute: 0),
+    const TimeOfDay(hour: 14, minute: 30),
+    const TimeOfDay(hour: 15, minute: 0),
+    const TimeOfDay(hour: 15, minute: 30),
+  ];
+
   Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a date first')),
+      );
+      return;
+    }
+
+    final healthService = Provider.of<HealthService>(context, listen: false);
+
+    await showModalBottomSheet(
       context: context,
-      initialTime: const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF800000),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Select Time',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF800000),
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              StreamBuilder<List<DateTime>>(
+                stream: healthService.getTakenSlotsForDateStream(_selectedDate!),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(
+                      height: 200,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  final takenSlots = snapshot.data ?? [];
+                  final takenTimes = takenSlots
+                      .map((dt) => TimeOfDay(hour: dt.hour, minute: dt.minute))
+                      .toSet();
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const BouncingScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 120,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: _availableSlots.length,
+                    itemBuilder: (context, index) {
+                      final slot = _availableSlots[index];
+                      final isTaken = takenTimes.contains(slot);
+                      final isSelected = _selectedTime == slot;
+
+                      return Material(
+                        color: isTaken
+                            ? Colors.grey.shade300
+                            : isSelected
+                                ? const Color(0xFF800000)
+                                : Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: isTaken
+                                ? Colors.transparent
+                                : isSelected
+                                    ? const Color(0xFF800000)
+                                    : Colors.grey.shade400,
+                          ),
+                        ),
+                        child: InkWell(
+                          onTap: isTaken
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _selectedTime = slot;
+                                  });
+                                  Navigator.pop(context);
+                                },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Center(
+                            child: Text(
+                              slot.format(context),
+                              style: TextStyle(
+                                color: isTaken
+                                    ? Colors.grey.shade500
+                                    : isSelected
+                                        ? Colors.white
+                                        : Colors.black87,
+                                fontWeight: FontWeight.bold,
+                                decoration: isTaken ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
-          child: child!,
         );
       },
     );
-
-    if (picked != null) {
-      final int hour = picked.hour;
-      final int minute = picked.minute;
-
-      final bool isMorning =
-          (hour >= 8 && hour < 12) || (hour == 12 && minute == 0);
-      final bool isAfternoon =
-          (hour >= 13 && hour < 16) || (hour == 16 && minute == 0);
-
-      if (isMorning || isAfternoon) {
-        if (picked != _selectedTime) {
-          setState(() {
-            _selectedTime = picked;
-          });
-        }
-      } else {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Clinic hours are 8:00 AM - 12:00 PM and 1:00 PM - 4:00 PM.',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    }
   }
 
   void _scheduleAppointment() {

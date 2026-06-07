@@ -173,21 +173,68 @@ class HealthService extends ChangeNotifier {
     );
     // Include createdAt for admin notification listening
     var map = appointment.toMap();
+    // Override createdAt with server timestamp for reliable admin listener queries
+    map['createdAt'] = FieldValue.serverTimestamp();
 
-    await _firestore.collection('appointments').doc(id).set(map);
+    final batch = _firestore.batch();
+    batch.set(_firestore.collection('appointments').doc(id), map);
+
+    final slotId = dateTime.toIso8601String();
+    batch.set(_firestore.collection('taken_slots').doc(slotId), {
+      'appointmentId': id,
+      'userId': userId,
+      'date': slotId,
+    });
+
+    await batch.commit();
   }
 
   Future<void> updateAppointmentStatus(
     String appointmentId,
     String status,
   ) async {
-    await _firestore.collection('appointments').doc(appointmentId).update({
+    final doc = await _firestore.collection('appointments').doc(appointmentId).get();
+    if (!doc.exists) return;
+
+    final batch = _firestore.batch();
+    batch.update(_firestore.collection('appointments').doc(appointmentId), {
       'status': status,
     });
+
+    if (status.toLowerCase() == 'cancelled' || status.toLowerCase() == 'rejected') {
+      final appt = Appointment.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      final slotId = appt.appointmentDate.toIso8601String();
+      batch.delete(_firestore.collection('taken_slots').doc(slotId));
+    }
+
+    await batch.commit();
   }
 
   Future<void> removeAppointment(String appointmentId) async {
-    await _firestore.collection('appointments').doc(appointmentId).delete();
+    final doc = await _firestore.collection('appointments').doc(appointmentId).get();
+    if (!doc.exists) return;
+
+    final appt = Appointment.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    final slotId = appt.appointmentDate.toIso8601String();
+
+    final batch = _firestore.batch();
+    batch.delete(_firestore.collection('appointments').doc(appointmentId));
+    batch.delete(_firestore.collection('taken_slots').doc(slotId));
+    await batch.commit();
+  }
+
+  Stream<List<DateTime>> getTakenSlotsForDateStream(DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+    return _firestore
+        .collection('taken_slots')
+        .where('date', isGreaterThanOrEqualTo: startOfDay.toIso8601String())
+        .where('date', isLessThanOrEqualTo: endOfDay.toIso8601String())
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => DateTime.parse(doc.id)).toList();
+    });
   }
 
   // --- Helpers / Status ---

@@ -5,9 +5,9 @@ service cloud.firestore {
     // Helper function to check if the authenticated user is an admin
     function isAdmin() {
       // Fetch the user's document to check their role.
-      // Note: In a production app with high traffic, using Custom Claims is better for performance/cost.
+      // Check both 'roleId' (current schema) and 'role' (legacy) for compatibility.
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc != null && userDoc.data.role == 'admin';
+      return userDoc != null && (userDoc.data.roleId == 'admin' || userDoc.data.role == 'admin');
     }
 
     // Helper to check if user is authenticated
@@ -51,6 +51,7 @@ service cloud.firestore {
       // Write: Only Admins can create/edit/delete announcements.
       allow write: if isAuthenticated() && isAdmin();
     }
+
     // --- AI Chats Collection Rules ---
     match /ai_chats/{chatId} {
       // Read: Users can see their own chats. Admins can see all.
@@ -61,6 +62,30 @@ service cloud.firestore {
       
       // Update/Delete: Not allowed for users (chat history is typically immutable)
       allow update, delete: if isAdmin();
+    }
+
+    // --- Taken Slots Collection Rules ---
+    match /taken_slots/{slotId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // --- Roles Collection Rules ---
+    match /roles/{roleId} {
+      // Any authenticated user can read roles (needed for role lookups)
+      allow read: if isAuthenticated();
+      // Only admins can modify roles
+      allow write: if isAuthenticated() && isAdmin();
+    }
+
+    // --- Sent Emails Collection Rules ---
+    match /sent_emails/{emailId} {
+      // Admins can read all sent emails
+      allow read: if isAuthenticated() && isAdmin();
+      // Any authenticated user can create (the system logs emails on behalf of the user)
+      allow create: if isAuthenticated();
+      // Only admins can update/delete
+      allow update, delete: if isAuthenticated() && isAdmin();
     }
     
   }

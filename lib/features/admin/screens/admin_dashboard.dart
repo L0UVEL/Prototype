@@ -38,6 +38,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _listenForNewAppointments() {
+    if (kIsWeb) {
+      // On web, local notifications are not supported, but we still listen
+      // for real-time updates (the UI will refresh via streams)
+      return;
+    }
+
     final notificationService = context.read<NotificationService>();
 
     // Listen to appointments created after the dashboard was opened
@@ -69,6 +75,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final healthService = context.read<HealthService>();
     final studentsStream = healthService.getStudentsStream();
     final students = await studentsStream.first;
+    
+    // Sort students by studentId ascending
+    students.sort((a, b) => a.studentId.compareTo(b.studentId));
 
     final header =
         'StudentID,Last Name,First Name,Status,Description,Course/Program\n';
@@ -79,12 +88,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final logs = await healthService.getDailyLogsStream(student.id).first;
       final statusData = healthService.calculateStudentStatus(logs);
 
-      final names = student.name.split(' ');
-      final firstName = names.first;
-      final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
-
       rowList.add(
-        '${student.id},"$lastName","$firstName","${statusData['status']}","${statusData['description']}","${student.program ?? ''}"',
+        '${student.studentId},"${student.lastName}","${student.firstName}","${statusData['status']}","${statusData['description']}","${student.program ?? ''}"',
       );
     }
 
@@ -107,7 +112,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text(kIsWeb ? 'Report downloaded: $filename' : 'Report saved: $filename'),
+                Expanded(
+                  child: Text(
+                    kIsWeb ? 'Report downloaded: $filename' : 'Report saved: $filename',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             backgroundColor: const Color(0xFF4CAF50),
