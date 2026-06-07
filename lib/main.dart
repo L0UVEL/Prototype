@@ -81,9 +81,9 @@ class AppRouter extends StatelessWidget {
         }
 
         final isLoggedIn = authService.isAuthenticated;
-        final isLoggingIn = state.uri.toString() == '/login';
-        final isSigningUp = state.uri.toString() == '/signup';
-        final isSplash = state.uri.toString() == '/splash';
+        final isLoggingIn = state.uri.path == '/login';
+        final isSigningUp = state.uri.path == '/signup';
+        final isSplash = state.uri.path == '/splash';
 
         if (!isLoggedIn) {
           return (isLoggingIn || isSigningUp) ? null : '/login';
@@ -92,19 +92,38 @@ class AppRouter extends StatelessWidget {
         // Force password change if required
         final requiresPasswordChange =
             authService.currentUser?.requiresPasswordChange ?? false;
-        final isChangingPassword = state.uri.toString() == '/change-password';
+        final isChangingPassword = state.uri.path == '/change-password';
 
         if (requiresPasswordChange) {
           return isChangingPassword ? null : '/change-password';
         }
 
+        final userRole = authService.currentUser?.role;
+
         // Already logged in and doesn't need password change
         if (isLoggingIn || isChangingPassword || isSplash) {
-          if (authService.currentUser?.role == UserRole.admin) {
+          if (userRole == UserRole.admin) {
             return '/admin';
           } else {
             return '/student-home';
           }
+        }
+
+        // Enforce RBAC
+        final path = state.uri.path;
+        final isAdminRoute = path.startsWith('/admin');
+        final isStudentRoute = path == '/student-home' ||
+            path == '/chat' ||
+            path == '/health-profile' ||
+            path == '/schedule' ||
+            path == '/daily-check-in';
+
+        if (isAdminRoute && userRole != UserRole.admin) {
+          return '/student-home';
+        }
+
+        if (isStudentRoute && userRole == UserRole.admin) {
+          return '/admin';
         }
 
         return null;
