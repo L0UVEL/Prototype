@@ -18,6 +18,7 @@ import '../../../core/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'admin_user_management_screen.dart';
 import 'admin_analytics_tab.dart';
+import 'admin_appointments_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -340,7 +341,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F5F2),
         appBar: AppBar(
@@ -356,6 +357,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             dividerColor: Colors.transparent,
             tabs: const [
               Tab(icon: Icon(Icons.campaign), text: 'Announcement'),
+              Tab(icon: Icon(Icons.calendar_month), text: 'Appointments'),
               Tab(icon: Icon(Icons.people), text: 'Students'),
               Tab(icon: Icon(Icons.assessment), text: 'Analytics'),
             ],
@@ -369,84 +371,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
               },
             ),
           ],
-        ),
-        drawer: Drawer(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF800000), Color(0xFF5C0000)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.admin_panel_settings,
-                        color: Colors.white,
-                        size: 36,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Admin Panel',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'PUP Unisan Campus',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.campaign, color: Color(0xFF800000)),
-                title: const Text('Announcements'),
-                onTap: () {
-                  Navigator.pop(context); // Close drawer
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.calendar_month, color: Color(0xFF800000)),
-                title: const Text('Manage Appointments'),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.go('/admin/appointments');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.person_add, color: Color(0xFF800000)),
-                title: const Text('Manage Users'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AdminUserManagementScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
         ),
         body: TabBarView(
           children: [
@@ -571,6 +495,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
             ),
+
+            // ═══════════════════════════════════════════════════════════════
+            // Appointments Tab
+            // ═══════════════════════════════════════════════════════════════
+            const AdminAppointmentsScreen(),
 
             // ═══════════════════════════════════════════════════════════════
             // Students Tab
