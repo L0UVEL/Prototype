@@ -157,7 +157,8 @@ class Appointment {
   final String adminId;
   final DateTime appointmentDate;
   final String reasonForVisit;
-  final String status; // 'Pending', 'Approved', 'Completed'
+  final String status; // 'Pending', 'Approved', 'Completed', 'Cancelled'
+  final String cancellationReason;
   final DateTime createdAt;
 
   Appointment({
@@ -168,6 +169,7 @@ class Appointment {
     required this.appointmentDate,
     required this.reasonForVisit,
     this.status = 'Pending',
+    this.cancellationReason = '',
     required this.createdAt,
   });
 
@@ -180,6 +182,7 @@ class Appointment {
       'appointmentDate': appointmentDate.toIso8601String(),
       'reasonForVisit': reasonForVisit,
       'status': status,
+      'cancellationReason': cancellationReason,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -213,6 +216,7 @@ class Appointment {
       appointmentDate: ad,
       reasonForVisit: map['reasonForVisit'] ?? '',
       status: map['status'] ?? 'Pending',
+      cancellationReason: map['cancellationReason'] ?? '',
       createdAt: ca,
     );
   }

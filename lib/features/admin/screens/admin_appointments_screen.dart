@@ -8,6 +8,108 @@ import '../../../core/models/user_model.dart';
 class AdminAppointmentsScreen extends StatelessWidget {
   const AdminAppointmentsScreen({super.key});
 
+  void _showCancellationReasonDialog(
+    BuildContext context,
+    HealthService healthService,
+    String appointmentId,
+  ) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Colors.red),
+            SizedBox(width: 8),
+            Text(
+              'Decline Appointment',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Please provide a reason for declining this appointment.',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Reason for cancellation',
+                hintText: 'e.g. Schedule conflict, unavailable, etc.',
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(bottom: 48),
+                  child: Icon(Icons.note_alt_outlined, color: Color(0xFF800000)),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFF800000), width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade600,
+            ),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final reason = reasonController.text.trim();
+              if (reason.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Please provide a cancellation reason'),
+                    backgroundColor: Colors.red.shade400,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+                return;
+              }
+              healthService.updateAppointmentStatus(
+                appointmentId,
+                'cancelled',
+                cancellationReason: reason,
+              );
+              Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Decline'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final healthService = Provider.of<HealthService>(context);
@@ -196,6 +298,55 @@ class AdminAppointmentsScreen extends StatelessWidget {
                                 appt.reasonForVisit,
                               ),
                               const SizedBox(height: 12),
+                              if (appt.status.toLowerCase() == 'cancelled' &&
+                                  appt.cancellationReason.isNotEmpty) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.06),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.red.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.info_outline,
+                                        size: 18,
+                                        color: Colors.red,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Cancellation Reason',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.red.shade400,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              appt.cancellationReason,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
                               if (healthProfile != null) ...[
                                 _buildDetailRow(
                                   Icons.bloodtype,
@@ -236,9 +387,10 @@ class AdminAppointmentsScreen extends StatelessWidget {
                                   if (appt.status.toLowerCase() == 'pending') ...[
                                     OutlinedButton(
                                       onPressed: () {
-                                        healthService.updateAppointmentStatus(
+                                        _showCancellationReasonDialog(
+                                          context,
+                                          healthService,
                                           appt.appointmentId,
-                                          'cancelled',
                                         );
                                       },
                                       style: OutlinedButton.styleFrom(

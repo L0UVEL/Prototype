@@ -191,15 +191,22 @@ class HealthService extends ChangeNotifier {
 
   Future<void> updateAppointmentStatus(
     String appointmentId,
-    String status,
-  ) async {
+    String status, {
+    String cancellationReason = '',
+  }) async {
     final doc = await _firestore.collection('appointments').doc(appointmentId).get();
     if (!doc.exists) return;
 
     final batch = _firestore.batch();
-    batch.update(_firestore.collection('appointments').doc(appointmentId), {
+    final updateData = <String, dynamic>{
       'status': status,
-    });
+    };
+
+    if (cancellationReason.isNotEmpty) {
+      updateData['cancellationReason'] = cancellationReason;
+    }
+
+    batch.update(_firestore.collection('appointments').doc(appointmentId), updateData);
 
     if (status.toLowerCase() == 'cancelled' || status.toLowerCase() == 'rejected') {
       final appt = Appointment.fromMap(doc.data() as Map<String, dynamic>, doc.id);

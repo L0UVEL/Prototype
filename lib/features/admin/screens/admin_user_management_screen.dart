@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'dart:convert';
 import '../../../core/utils/platform_file_helper_stub.dart'
     if (dart.library.io) '../../../core/utils/platform_file_helper_io.dart';
@@ -145,7 +146,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['csv'],
+        allowedExtensions: ['csv', 'xlsx'],
       );
 
       if (result == null) return; // User canceled
@@ -156,24 +157,39 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
       final pickedFile = result.files.single;
       final bytes = await getFileBytes(pickedFile);
+      final extension = pickedFile.extension?.toLowerCase() ?? '';
 
-      // Try UTF-8 first, fall back to Latin-1 for Excel-exported CSVs
-      String input;
-      try {
-        input = utf8.decode(bytes);
-      } catch (_) {
-        input = latin1.decode(bytes);
+      List<List<dynamic>> fields;
+
+      if (extension == 'xlsx') {
+        // Parse XLSX file
+        final excel = Excel.decodeBytes(bytes);
+        final firstSheet = excel.tables.keys.first;
+        final sheet = excel.tables[firstSheet]!;
+        fields = sheet.rows.map((row) {
+          return row.map((cell) => cell?.value?.toString() ?? '').toList();
+        }).toList();
+      } else {
+        // Parse CSV file
+        String input;
+        try {
+          input = utf8.decode(bytes);
+        } catch (_) {
+          input = latin1.decode(bytes);
+        }
+        // Strip BOM if present
+        if (input.startsWith('\uFEFF')) {
+          input = input.substring(1);
+        }
+        fields = CsvCodec().decoder.convert(input);
       }
-      // Strip BOM if present
-      if (input.startsWith('\uFEFF')) {
-        input = input.substring(1);
-      }
-      final fields = CsvCodec().decoder.convert(input);
 
       if (fields.isEmpty || fields.length < 2) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid or empty CSV file')),
+            SnackBar(
+              content: Text('Invalid or empty ${extension.toUpperCase()} file'),
+            ),
           );
         }
         return;
@@ -333,7 +349,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error processing CSV: $e'),
+            content: Text('Error processing file: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -412,7 +428,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _isLoading ? null : _bulkRegisterUsers,
                         icon: const Icon(Icons.file_upload_outlined),
-                        label: const Text('Upload CSV File'),
+                        label: const Text('Upload CSV / XLSX File'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF800000),
                           side: const BorderSide(color: Color(0xFF800000)),
@@ -424,7 +440,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'CSV Format: Student ID, First Name, Last Name, Program, Email (Header row required)',
+                      'CSV / XLSX Format: Student ID, First Name, Last Name, Program, Email (Header row required)',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade500,

@@ -287,6 +287,32 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                  if (appt.status.toLowerCase() == 'cancelled' &&
+                                      appt.cancellationReason.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            size: 14,
+                                            color: Colors.red.shade300,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              'Reason: ${appt.cancellationReason}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.red.shade400,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                 ],
                               ),
                               trailing: IconButton(
