@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/file_saver/file_saver.dart';
@@ -145,6 +146,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final titleController = TextEditingController();
     final contentController = TextEditingController();
     List<XFile> dialogSelectedImages = [];
+    List<PlatformFile> dialogSelectedPdfs = [];
 
     showDialog(
       context: context,
@@ -299,6 +301,88 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    // ─── PDF attachments list ───
+                    if (dialogSelectedPdfs.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ...dialogSelectedPdfs.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final pdf = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFF800000).withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.picture_as_pdf,
+                                color: Color(0xFF800000),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  pdf.name,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    dialogSelectedPdfs.removeAt(idx);
+                                  });
+                                },
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['pdf'],
+                          allowMultiple: true,
+                          withData: true,
+                        );
+                        if (result != null && result.files.isNotEmpty) {
+                          setState(() {
+                            dialogSelectedPdfs.addAll(result.files);
+                          });
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.picture_as_pdf,
+                        color: Color(0xFF800000),
+                      ),
+                      label: const Text('Attach PDF'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF800000),
+                        side: const BorderSide(color: Color(0xFF800000)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -319,6 +403,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       titleController.text,
                       contentController.text,
                       images: dialogSelectedImages,
+                      pdfs: dialogSelectedPdfs,
                     );
                     Navigator.pop(context);
                   }

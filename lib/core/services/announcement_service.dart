@@ -1,11 +1,30 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/image_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'dart:async';
 import 'notification_service.dart';
+
+/// Represents a PDF attachment stored as a base64 data URI.
+class PdfAttachment {
+  final String name;
+  final String dataUri; // "data:application/pdf;base64,..."
+
+  PdfAttachment({required this.name, required this.dataUri});
+
+  Map<String, dynamic> toMap() => {'name': name, 'dataUri': dataUri};
+
+  factory PdfAttachment.fromMap(Map<String, dynamic> map) {
+    return PdfAttachment(
+      name: map['name'] ?? 'attachment.pdf',
+      dataUri: map['dataUri'] ?? '',
+    );
+  }
+}
 
 class Announcement {
   final String id;
@@ -13,6 +32,7 @@ class Announcement {
   final String content;
   final DateTime timestamp;
   final List<String> imageUrls;
+  final List<PdfAttachment> pdfAttachments;
   final String adminId;
 
   Announcement({
@@ -21,6 +41,7 @@ class Announcement {
     required this.content,
     required this.timestamp,
     this.imageUrls = const [],
+    this.pdfAttachments = const [],
     this.adminId = '',
   });
 
@@ -34,6 +55,7 @@ class Announcement {
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
       'imageUrls': imageUrls,
+      'pdfAttachments': pdfAttachments.map((p) => p.toMap()).toList(),
       'adminId': adminId,
     };
   }
@@ -49,12 +71,17 @@ class Announcement {
       dt = DateTime.now();
     }
 
+    final rawPdfs = map['pdfAttachments'] as List<dynamic>? ?? [];
+
     return Announcement(
       id: map['id'] ?? '',
       title: map['title'] ?? '',
       content: map['content'] ?? '',
       timestamp: dt,
       imageUrls: List<String>.from(map['imageUrls'] ?? []),
+      pdfAttachments: rawPdfs
+          .map((p) => PdfAttachment.fromMap(Map<String, dynamic>.from(p)))
+          .toList(),
       adminId: map['adminId'] ?? '',
     );
   }
@@ -131,15 +158,44 @@ class AnnouncementService extends ChangeNotifier {
     return base64Images;
   }
 
+  /// Convert [PlatformFile]s from file_picker into [PdfAttachment]s.
+  Future<List<PdfAttachment>> _processPdfsToBase64(
+    List<PlatformFile> files,
+  ) async {
+    List<PdfAttachment> attachments = [];
+    for (final file in files) {
+      try {
+        final Uint8List? bytes = file.bytes;
+        if (bytes != null) {
+          final base64Str = base64Encode(bytes);
+          attachments.add(PdfAttachment(
+            name: file.name,
+            dataUri: 'data:application/pdf;base64,$base64Str',
+          ));
+        }
+      } catch (e) {
+        debugPrint('Error converting PDF to base64: $e');
+      }
+    }
+    return attachments;
+  }
+
   Future<void> addAnnouncement(
     String title,
     String content, {
     List<XFile> images = const [],
+    List<PlatformFile> pdfs = const [],
   }) async {
     // 1. Process images to base64 first
     List<String> base64Images = [];
     if (images.isNotEmpty) {
       base64Images = await _processImagesToBase64(images);
+    }
+
+    // 2. Process PDFs to base64
+    List<PdfAttachment> pdfAttachments = [];
+    if (pdfs.isNotEmpty) {
+      pdfAttachments = await _processPdfsToBase64(pdfs);
     }
 
     final announcement = Announcement(
@@ -148,10 +204,11 @@ class AnnouncementService extends ChangeNotifier {
       content: content,
       timestamp: DateTime.now(),
       imageUrls: base64Images,
+      pdfAttachments: pdfAttachments,
       adminId: _auth.currentUser?.uid ?? '',
     );
 
-    // 2. Add to Firestore
+    // 3. Add to Firestore
     await _firestore
         .collection('announcements')
         .doc(announcement.id)
