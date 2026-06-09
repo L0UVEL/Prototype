@@ -289,6 +289,91 @@ class HealthService extends ChangeNotifier {
     };
   }
 
+  /// Calculates the health status of a student for a specific [targetDate],
+  /// enabling historical analytics lookback.
+  Map<String, dynamic> calculateStudentStatusForDate(
+    List<HealthUpdate> logs,
+    DateTime targetDate,
+  ) {
+    if (logs.isEmpty) {
+      return {
+        'status': 'No Data',
+        'color': 0xFF9E9E9E,
+        'description': 'No check-ins yet',
+      };
+    }
+
+    // Find logs that match the target date
+    final logsOnDate = logs.where((log) =>
+      log.checkinDate.year == targetDate.year &&
+      log.checkinDate.month == targetDate.month &&
+      log.checkinDate.day == targetDate.day,
+    ).toList();
+
+    if (logsOnDate.isEmpty) {
+      // Find the most recent log before the target date
+      final logsBefore = logs.where((log) =>
+        log.checkinDate.isBefore(
+          DateTime(targetDate.year, targetDate.month, targetDate.day + 1),
+        ),
+      ).toList();
+      logsBefore.sort((a, b) => b.checkinDate.compareTo(a.checkinDate));
+
+      if (logsBefore.isEmpty) {
+        return {
+          'status': 'No Data',
+          'color': 0xFF9E9E9E,
+          'description': 'No check-ins before this date',
+        };
+      }
+
+      return {
+        'status': 'Missed Check-in',
+        'color': 0xFFFFA000,
+        'description': 'Last check-in: ${_formatDate(logsBefore.first.checkinDate)}',
+      };
+    }
+
+    // Sort logs on that date descending and use the latest
+    logsOnDate.sort((a, b) => b.checkinDate.compareTo(a.checkinDate));
+    final latestLog = logsOnDate.first;
+
+    if (latestLog.status == 'At Risk') {
+      return {
+        'status': 'At Risk',
+        'color': 0xFFD32F2F,
+        'description': 'Reported symptoms: ${latestLog.symptoms}',
+      };
+    }
+
+    return {
+      'status': 'Healthy',
+      'color': 0xFF388E3C,
+      'description': 'Checked in on ${_formatDate(latestLog.checkinDate)}',
+    };
+  }
+
+  /// Fetches a full health snapshot for all students on a specific [date].
+  /// Returns a list of maps containing student info and their computed status.
+  Future<List<Map<String, dynamic>>> getHealthSnapshotForDate(DateTime date) async {
+    final students = await getStudentsStream().first;
+    final List<Map<String, dynamic>> snapshot = [];
+
+    for (var student in students) {
+      final logs = await getDailyLogsStream(student.id).first;
+      final statusData = calculateStudentStatusForDate(logs, date);
+
+      snapshot.add({
+        'student': student,
+        'status': statusData['status'],
+        'color': statusData['color'],
+        'description': statusData['description'],
+      });
+    }
+
+    return snapshot;
+  }
+
   String _formatDate(DateTime date) {
     return '${date.month}/${date.day}';
   }

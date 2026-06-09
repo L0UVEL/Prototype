@@ -8,6 +8,7 @@ import '../../../core/utils/report_helper_stub.dart'
     if (dart.library.io) '../../../core/utils/report_helper_io.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/services/ai_service.dart';
+import 'admin_past_analytics_screen.dart';
 
 class AdminAnalyticsTab extends StatefulWidget {
   const AdminAnalyticsTab({super.key});
@@ -282,8 +283,80 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
               ),
               const SizedBox(height: 24),
 
+              // Past Analytics Button
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminPastAnalyticsScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF800000).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.history,
+                          color: Color(0xFF800000),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'View Past Analytics',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2D2D2D),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Browse historical health status data by date',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: Colors.grey.shade400,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
 
-              // Summary Cards
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
