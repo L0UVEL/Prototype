@@ -93,6 +93,7 @@ class AnnouncementService extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
 
   StreamSubscription? _firestoreSubscription;
+  bool _isFirstSnapshot = true;
 
   List<Announcement> _announcements = [];
   List<Announcement> get announcements => List.unmodifiable(_announcements);
@@ -120,6 +121,7 @@ class AnnouncementService extends ChangeNotifier {
 
   void _startFirestoreListener() {
     _stopFirestoreListener(); // Close existing if any
+    _isFirstSnapshot = true;
 
     _firestoreSubscription = _firestore
         .collection('announcements')
@@ -130,6 +132,29 @@ class AnnouncementService extends ChangeNotifier {
             _announcements = snapshot.docs
                 .map((doc) => Announcement.fromMap(doc.data()))
                 .toList();
+
+            // Notify for newly added announcements (skip initial load)
+            if (_isFirstSnapshot) {
+              _isFirstSnapshot = false;
+            } else {
+              for (var change in snapshot.docChanges) {
+                if (change.type == DocumentChangeType.added) {
+                  final data = change.doc.data();
+                  if (data != null) {
+                    final title = data['title'] ?? 'New Announcement';
+                    final content = data['content'] ?? '';
+                    _notificationService.showAnnouncementNotification(
+                      id: change.doc.id.hashCode,
+                      title: '📢 $title',
+                      body: content.length > 100
+                          ? '${content.substring(0, 100)}...'
+                          : content,
+                    );
+                  }
+                }
+              }
+            }
+
             notifyListeners();
           },
           onError: (e) {
@@ -209,19 +234,11 @@ class AnnouncementService extends ChangeNotifier {
     );
 
     // 3. Add to Firestore
+    // The Firestore snapshot listener will handle notifications for all devices
     await _firestore
         .collection('announcements')
         .doc(announcement.id)
         .set(announcement.toMap());
-
-    // Trigger notification
-    if (!kIsWeb) {
-      await _notificationService.showNotification(
-        id: announcement.id.hashCode,
-        title: 'New Announcement: $title',
-        body: content,
-      );
-    }
 
     // notifyListeners is handled by the stream listener
   }

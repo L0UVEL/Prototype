@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -16,7 +17,6 @@ import '../../../core/services/health_service.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/models/health_model.dart';
 import '../../../core/services/notification_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'admin_user_management_screen.dart';
 import 'admin_analytics_tab.dart';
 import 'admin_appointments_screen.dart';
@@ -29,8 +29,8 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   DateTime? _dashboardInitTime;
+  StreamSubscription? _appointmentSubscription;
 
   @override
   void initState() {
@@ -39,38 +39,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _listenForNewAppointments();
   }
 
-  void _listenForNewAppointments() {
-    if (kIsWeb) {
-      // On web, local notifications are not supported, but we still listen
-      // for real-time updates (the UI will refresh via streams)
-      return;
-    }
+  @override
+  void dispose() {
+    _appointmentSubscription?.cancel();
+    super.dispose();
+  }
 
+  void _listenForNewAppointments() {
+    final healthService = context.read<HealthService>();
     final notificationService = context.read<NotificationService>();
 
-    // Listen to appointments created after the dashboard was opened
-    _firestore
-        .collection('appointments')
-        .where(
-          'createdAt',
-          isGreaterThan: Timestamp.fromDate(_dashboardInitTime!),
-        )
-        .snapshots()
-        .listen((snapshot) {
-          for (var change in snapshot.docChanges) {
-            if (change.type == DocumentChangeType.added) {
-              final data = change.doc.data();
-              if (data != null) {
-                notificationService.showNotification(
-                  id: change.doc.id.hashCode,
-                  title: 'New Appointment',
-                  body:
-                      'A student has requested a new appointment (${data['reason'] ?? 'consultation'}).',
-                );
-              }
-            }
-          }
-        });
+    _appointmentSubscription = healthService.listenForNewAppointments(
+      notificationService: notificationService,
+      sinceTime: _dashboardInitTime!,
+    );
   }
 
   Future<void> _generateReport(BuildContext context) async {

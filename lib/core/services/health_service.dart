@@ -2,12 +2,99 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:async';
 import '../models/health_model.dart';
 import '../models/user_model.dart';
 import '../utils/image_utils.dart';
+import 'notification_service.dart';
 
 class HealthService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// Listen for status changes on a student's appointments.
+  /// Returns a [StreamSubscription] the caller must cancel in `dispose()`.
+  StreamSubscription? listenForAppointmentStatusChanges({
+    required String userId,
+    required NotificationService notificationService,
+  }) {
+    if (kIsWeb) return null;
+
+    bool isFirstSnapshot = true;
+
+    return _firestore
+        .collection('appointments')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .listen((snapshot) {
+      if (isFirstSnapshot) {
+        isFirstSnapshot = false;
+        return;
+      }
+
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.modified) {
+          final data = change.doc.data();
+          if (data != null) {
+            final status = (data['status'] ?? '').toString().toLowerCase();
+            final reason = data['reasonForVisit'] ?? 'consultation';
+
+            if (status == 'approved') {
+              notificationService.showAppointmentNotification(
+                id: change.doc.id.hashCode,
+                title: '✅ Appointment Approved',
+                body: 'Your appointment for "$reason" has been approved.',
+              );
+            } else if (status == 'cancelled') {
+              final cancelReason = data['cancellationReason'] ?? '';
+              notificationService.showAppointmentNotification(
+                id: change.doc.id.hashCode,
+                title: '❌ Appointment Declined',
+                body: cancelReason.isNotEmpty
+                    ? 'Your appointment for "$reason" was declined. Reason: $cancelReason'
+                    : 'Your appointment for "$reason" was declined.',
+              );
+            } else if (status == 'completed') {
+              notificationService.showAppointmentNotification(
+                id: change.doc.id.hashCode,
+                title: '🏥 Appointment Completed',
+                body: 'Your appointment for "$reason" has been marked as completed.',
+              );
+            }
+          }
+        }
+      }
+    });
+  }
+
+  /// Listen for new appointment bookings (for admin side).
+  /// Returns a [StreamSubscription] the caller must cancel in `dispose()`.
+  StreamSubscription? listenForNewAppointments({
+    required NotificationService notificationService,
+    required DateTime sinceTime,
+  }) {
+    if (kIsWeb) return null;
+
+    return _firestore
+        .collection('appointments')
+        .where('createdAt', isGreaterThan: Timestamp.fromDate(sinceTime))
+        .snapshots()
+        .listen((snapshot) {
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final data = change.doc.data();
+          if (data != null) {
+            final reason = data['reasonForVisit'] ?? 'consultation';
+            final studentId = data['studentId'] ?? 'Unknown';
+            notificationService.showAppointmentNotification(
+              id: change.doc.id.hashCode,
+              title: '📅 New Appointment Request',
+              body: 'Student $studentId has requested an appointment for "$reason".',
+            );
+          }
+        }
+      }
+    });
+  }
 
   /// Converts an XFile to base64 for storing in Firestore.
   Future<String> convertXFileToProfileImage(XFile xFile) async {

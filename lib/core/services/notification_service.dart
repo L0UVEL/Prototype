@@ -107,6 +107,64 @@ class NotificationService {
     if (kIsWeb) return;
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
+          'general_channel',
+          'General',
+          channelDescription: 'General notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+          ticker: 'ticker',
+        );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+    );
+
+    await _flutterLocalNotificationsPlugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+    );
+  }
+
+  /// Show a notification for appointment status changes (approved/rejected).
+  Future<void> showAppointmentNotification({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    if (kIsWeb) return;
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+          'appointment_channel',
+          'Appointments',
+          channelDescription: 'Notifications for appointment updates',
+          importance: Importance.max,
+          priority: Priority.high,
+          ticker: 'ticker',
+        );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+    );
+
+    await _flutterLocalNotificationsPlugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+    );
+  }
+
+  /// Show a notification when a new announcement is posted.
+  Future<void> showAnnouncementNotification({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    if (kIsWeb) return;
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
           'announcement_channel',
           'Announcements',
           channelDescription: 'Notifications for new announcements',

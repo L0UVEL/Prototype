@@ -1,4 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../core/services/health_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../health/screens/health_landing_screen.dart';
 import '../../student/screens/student_announcements_screen.dart';
@@ -12,12 +17,40 @@ class StudentHomeScreen extends StatefulWidget {
 
 class _StudentHomeScreenState extends State<StudentHomeScreen> {
   int _currentIndex = 1; // Default to Health (Daily Check-in)
+  StreamSubscription? _appointmentStatusSubscription;
 
   final List<Widget> _screens = const [
     ChatScreen(),
     HealthLandingScreen(),
     StudentAnnouncementsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAppointmentNotifications();
+  }
+
+  void _setupAppointmentNotifications() {
+    final authService = context.read<AuthService>();
+    final healthService = context.read<HealthService>();
+    final notificationService = context.read<NotificationService>();
+    final user = authService.currentUser;
+
+    if (user != null) {
+      _appointmentStatusSubscription =
+          healthService.listenForAppointmentStatusChanges(
+        userId: user.id,
+        notificationService: notificationService,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _appointmentStatusSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
