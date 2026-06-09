@@ -351,72 +351,140 @@ class AdminStudentDetailScreen extends StatelessWidget {
 
   Widget _buildLogCard(BuildContext context, HealthUpdate log) {
     final isSick = log.status == 'At Risk';
+    
+    final statusColor = isSick ? const Color(0xFFD32F2F) : const Color(0xFF388E3C);
+    final bgColor = isSick ? statusColor.withValues(alpha: 0.04) : Colors.white;
+    final borderColor = isSick ? statusColor.withValues(alpha: 0.3) : Colors.grey.shade200;
+    
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSick
-              ? Colors.red.withValues(alpha: 0.3)
-              : Colors.grey.shade200,
-        ),
+        border: Border.all(color: borderColor),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
+          if (isSick)
+            BoxShadow(
+              color: statusColor.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            )
+          else
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 6,
-        ),
-        leading: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF800000).withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                DateFormat('MMM').format(log.checkinDate),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                  color: Color(0xFF800000),
-                ),
-              ),
-              Text(
-                DateFormat('d').format(log.checkinDate),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF800000),
-                ),
-              ),
-            ],
-          ),
-        ),
-        title: Text(
-          '${log.status} ${isSick ? "⚠️" : ""}',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (log.symptoms.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Symptoms & Notes: ${log.symptoms}',
-                  style: const TextStyle(color: Colors.red, fontSize: 13),
-                ),
+            // Date Box
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: statusColor.withValues(alpha: 0.15)),
               ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    DateFormat('MMM').format(log.checkinDate),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: statusColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    DateFormat('d').format(log.checkinDate),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        log.status,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isSick ? statusColor : const Color(0xFF2D2D2D),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        isSick ? Icons.warning_rounded : Icons.check_circle_rounded,
+                        size: 18,
+                        color: statusColor,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (log.symptoms.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSick ? Colors.white : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSick ? statusColor.withValues(alpha: 0.2) : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.notes_rounded,
+                                size: 14,
+                                color: isSick ? statusColor : Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Symptoms & Notes',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSick ? statusColor : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            log.symptoms,
+                            style: TextStyle(
+                              color: isSick ? statusColor.withValues(alpha: 0.9) : Colors.grey.shade800,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
