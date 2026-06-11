@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/models/health_model.dart';
+import '../../../core/services/activity_log_service.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
@@ -218,6 +219,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         fullDateTime,
         _reasonController.text,
       );
+
+      try {
+        if (mounted) {
+          context.read<ActivityLogService>().logActivity(
+            studentId: user.id,
+            moduleName: 'Appointment',
+            action: 'Scheduled Appointment for ${DateFormat('yyyy-MM-dd').format(fullDateTime)}',
+          );
+        }
+      } catch (_) {}
 
       // Reset form
       setState(() {

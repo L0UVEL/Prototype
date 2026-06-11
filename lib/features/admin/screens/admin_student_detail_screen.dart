@@ -5,6 +5,8 @@ import '../../../core/utils/image_utils.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/models/health_model.dart';
 import '../../../core/models/user_model.dart';
+import '../../../core/models/activity_log_model.dart';
+import '../../../core/services/activity_log_service.dart';
 
 class AdminStudentDetailScreen extends StatelessWidget {
   final String studentId;
@@ -170,6 +172,32 @@ class AdminStudentDetailScreen extends StatelessWidget {
                               )
                             else
                               _buildEmptyCard('No check-ins found.'),
+
+                            const SizedBox(height: 24),
+
+                            // Activity Logs
+                            _buildSectionHeader('Recent Activity', Icons.local_activity),
+                            const SizedBox(height: 12),
+                            StreamBuilder<List<ActivityLogModel>>(
+                              stream: context.read<ActivityLogService>().getLogsForStudent(studentId),
+                              builder: (context, activitySnapshot) {
+                                if (activitySnapshot.connectionState == ConnectionState.waiting) {
+                                  return const Center(child: CircularProgressIndicator());
+                                }
+                                final activities = activitySnapshot.data ?? [];
+                                if (activities.isEmpty) {
+                                  return _buildEmptyCard('No recent activity recorded.');
+                                }
+                                return ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: activities.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildActivityCard(context, activities[index]);
+                                  },
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -490,4 +518,59 @@ class AdminStudentDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildActivityCard(BuildContext context, ActivityLogModel log) {
+    IconData getIconForModule(String module) {
+      switch (module) {
+        case 'AI Chat': return Icons.smart_toy;
+        case 'Daily Check-in': return Icons.fact_check;
+        case 'Appointment': return Icons.calendar_month;
+        case 'Announcement': return Icons.campaign;
+        default: return Icons.local_activity;
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFF800000).withValues(alpha: 0.1),
+          child: Icon(
+            getIconForModule(log.moduleName),
+            color: const Color(0xFF800000),
+          ),
+        ),
+        title: Text(
+          log.moduleName,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(log.action, style: TextStyle(color: Colors.grey.shade800, fontSize: 13)),
+            const SizedBox(height: 4),
+            Text(
+              DateFormat('MMM d, y • h:mm a').format(log.timestamp),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

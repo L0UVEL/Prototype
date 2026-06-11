@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/services/announcement_service.dart';
 import '../../../core/utils/image_utils.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../core/services/activity_log_service.dart';
 
 class StudentAnnouncementsScreen extends StatelessWidget {
   const StudentAnnouncementsScreen({super.key});
@@ -50,6 +52,14 @@ class StudentAnnouncementsScreen extends StatelessWidget {
                 ),
                 child: InkWell(
                   onTap: () {
+                    final user = context.read<AuthService>().currentUser;
+                    if (user != null) {
+                      context.read<ActivityLogService>().logActivity(
+                        studentId: user.id,
+                        moduleName: 'Announcement',
+                        action: 'Viewed Announcement: ${announcement.title}',
+                      );
+                    }
                     context.push('/announcement/${announcement.id}');
                   },
                   borderRadius: BorderRadius.circular(12),

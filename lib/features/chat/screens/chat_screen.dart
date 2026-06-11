@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/services/ai_service.dart';
+import '../../../core/services/activity_log_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -52,6 +53,14 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _isTyping = true;
     });
+
+    try {
+      context.read<ActivityLogService>().logActivity(
+        studentId: userId,
+        moduleName: 'AI Chat',
+        action: 'Opened AI Chat',
+      );
+    } catch (_) {}
 
     try {
       final snapshot = await FirebaseFirestore.instance

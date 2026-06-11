@@ -78,6 +78,18 @@ service cloud.firestore {
       allow write: if isAuthenticated() && isAdmin();
     }
 
+    // --- Activity Logs Collection Rules ---
+    match /activity_logs/{logId} {
+      // Read: Users can see their own activity. Admins can see all.
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.studentId == request.auth.uid);
+      
+      // Create: Users can only log activity for themselves.
+      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid);
+      
+      // Update/Delete: Only Admins
+      allow update, delete: if isAuthenticated() && isAdmin();
+    }
+
     // --- Sent Emails Collection Rules ---
     match /sent_emails/{emailId} {
       // Admins can read all sent emails

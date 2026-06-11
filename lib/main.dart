@@ -7,6 +7,7 @@ import 'core/services/auth_service.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/announcement_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/activity_log_service.dart';
 import 'core/models/user_model.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/signup_screen.dart';
@@ -58,6 +59,7 @@ class MyApp extends StatelessWidget {
         Provider(create: (_) => AIService()),
         ChangeNotifierProvider(create: (_) => AnnouncementService()),
         ChangeNotifierProvider(create: (_) => HealthService()),
+        ChangeNotifierProvider(create: (_) => ActivityLogService()),
         Provider.value(value: notificationService),
       ],
       child: const AppRouter(),

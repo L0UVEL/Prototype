@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/models/health_model.dart';
+import '../../../core/services/activity_log_service.dart';
 
 class DailyCheckInScreen extends StatefulWidget {
   const DailyCheckInScreen({super.key});
@@ -71,6 +72,16 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
       );
 
       await healthService.addDailyLog(log);
+
+      try {
+        if (mounted) {
+          context.read<ActivityLogService>().logActivity(
+            studentId: user.id,
+            moduleName: 'Daily Check-in',
+            action: 'Submitted Daily Check-in (Status: $status)',
+          );
+        }
+      } catch (_) {}
 
       if (mounted) {
         setState(() {
