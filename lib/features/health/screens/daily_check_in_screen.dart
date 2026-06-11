@@ -133,36 +133,48 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                   ),
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       gradient: const LinearGradient(
                         colors: [Color(0xFF00695C), Color(0xFF4DB6AC)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00695C).withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
                     child: const Padding(
-                      padding: EdgeInsets.all(32.0),
+                      padding: EdgeInsets.symmetric(vertical: 48.0, horizontal: 32.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.check_circle_outline,
-                            size: 64,
+                            Icons.check_circle_rounded,
+                            size: 80,
                             color: Colors.white,
                           ),
-                          SizedBox(height: 16),
+                          SizedBox(height: 24),
                           Text(
                             "You're all set!",
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: 28,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
+                              letterSpacing: 0.5,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          SizedBox(height: 12),
                           Text(
                             'Thanks for checking in today.',
-                            style: TextStyle(color: Colors.white70),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
@@ -206,27 +218,26 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           margin: const EdgeInsets.only(right: 12),
-                          width: 80,
+                          width: 90,
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? const Color(0xFF800000)
                                 : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isSelected
                                   ? const Color(0xFF800000)
-                                  : Colors.grey.shade200,
+                                  : Colors.transparent,
                               width: 2,
                             ),
                             boxShadow: [
-                              if (isSelected)
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF800000,
-                                  ).withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
+                              BoxShadow(
+                                color: isSelected
+                                    ? const Color(0xFF800000).withValues(alpha: 0.3)
+                                    : Colors.black.withValues(alpha: 0.04),
+                                blurRadius: isSelected ? 12 : 8,
+                                offset: const Offset(0, 4),
+                              ),
                             ],
                           ),
                           child: Column(
@@ -266,6 +277,8 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                     return FilterChip(
                       label: Text(symptom),
                       selected: isSelected,
+                      backgroundColor: Colors.white,
+                      elevation: isSelected ? 2 : 0,
                       selectedColor: const Color(
                         0xFF800000,
                       ).withValues(alpha: 0.1),
@@ -276,14 +289,14 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                             : Colors.black87,
                         fontWeight: isSelected
                             ? FontWeight.bold
-                            : FontWeight.normal,
+                            : FontWeight.w500,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                         side: BorderSide(
                           color: isSelected
                               ? const Color(0xFF800000)
-                              : Colors.grey.shade300,
+                              : Colors.grey.shade200,
                         ),
                       ),
                       onSelected: (selected) {
@@ -332,7 +345,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF800000),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(24),
                       ),
                       elevation: 4,
                       shadowColor: const Color(

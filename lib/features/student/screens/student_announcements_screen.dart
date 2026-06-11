@@ -21,20 +21,40 @@ class StudentAnnouncementsScreen extends StatelessWidget {
 
           if (announcements.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.campaign_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No announcements yet',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.campaign_outlined,
+                        size: 64,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'No announcements yet',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Check back later for updates from the clinic.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -46,9 +66,10 @@ class StudentAnnouncementsScreen extends StatelessWidget {
               final announcement = announcements[index];
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
-                elevation: 2,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: Colors.grey.shade200),
                 ),
                 child: InkWell(
                   onTap: () {

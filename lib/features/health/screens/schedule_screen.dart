@@ -143,13 +143,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 ? const Color(0xFF800000)
                                 : Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(24),
                           side: BorderSide(
                             color: isTaken
                                 ? Colors.transparent
                                 : isSelected
                                     ? const Color(0xFF800000)
-                                    : Colors.grey.shade400,
+                                    : Colors.grey.shade300,
                           ),
                         ),
                         child: InkWell(
@@ -273,7 +273,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           final appt = appointments[index];
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               leading: const Icon(
                                 Icons.calendar_today,
                                 color: Color(0xFF800000),
@@ -287,15 +292,28 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text('Reason: ${appt.reasonForVisit}'),
-                                  Text(
-                                    'Status: ${appt.status.toUpperCase()}',
-                                    style: TextStyle(
-                                      color: appt.status.toLowerCase() == 'approved' || appt.status.toLowerCase() == 'completed'
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: (appt.status.toLowerCase() == 'approved' || appt.status.toLowerCase() == 'completed'
                                           ? Colors.green
                                           : appt.status.toLowerCase() == 'cancelled'
                                               ? Colors.red
-                                              : Colors.orange,
-                                      fontWeight: FontWeight.bold,
+                                              : Colors.orange).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      appt.status.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: appt.status.toLowerCase() == 'approved' || appt.status.toLowerCase() == 'completed'
+                                            ? Colors.green
+                                            : appt.status.toLowerCase() == 'cancelled'
+                                                ? Colors.red
+                                                : Colors.orange,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                   if (appt.status.toLowerCase() == 'cancelled' &&
@@ -454,12 +472,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton(
+                        FilledButton(
                           onPressed: _scheduleAppointment,
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF800000),
                             padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            elevation: 2,
                           ),
-                          child: const Text('Schedule Appointment'),
+                          child: const Text('Schedule Appointment', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),

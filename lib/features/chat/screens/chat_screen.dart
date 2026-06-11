@@ -261,7 +261,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Health Assistant'),
+        title: const Text('AI Health Assistant', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF800000),
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -271,51 +274,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color(0xFF800000)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Icon(Icons.health_and_safety, color: Colors.white, size: 48),
-                  SizedBox(height: 10),
-                  Text(
-                    'Health Support',
-                    style: TextStyle(color: Colors.white, fontSize: 24),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.chat),
-              title: const Text('AI Chat'),
-              onTap: () {
-                context.pop(); // Close drawer
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Health Profile'),
-              onTap: () {
-                context.pop();
-                context.push('/health-profile');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_month),
-              title: const Text('Schedule Checkup'),
-              onTap: () {
-                context.pop();
-                context.push('/schedule');
-              },
-            ),
-          ],
-        ),
-      ),
+
       body: Column(
         children: [
           Expanded(
@@ -348,25 +307,39 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _textController,
-                        decoration: const InputDecoration(
-                          hintText: 'Type your symptoms...',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _textController,
+                          decoration: const InputDecoration(
+                            hintText: 'Type your message...',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          onSubmitted: (_) => _sendMessage(),
                         ),
-                        onSubmitted: (_) => _sendMessage(),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      color: Theme.of(context).primaryColor,
-                      onPressed: _sendMessage,
-                    ),
-                  ],
+                      Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF800000),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_upward, size: 20),
+                          color: Colors.white,
+                          onPressed: _sendMessage,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4.0),
@@ -408,12 +381,13 @@ class _ChatBubble extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: isUser
-              ? theme.primaryColor
-              : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: isUser ? const Radius.circular(0) : null,
-            bottomLeft: !isUser ? const Radius.circular(0) : null,
+              ? const Color(0xFF800000)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20).copyWith(
+            bottomRight: isUser ? const Radius.circular(4) : null,
+            bottomLeft: !isUser ? const Radius.circular(4) : null,
           ),
+          border: !isUser ? Border.all(color: Colors.grey.shade200) : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

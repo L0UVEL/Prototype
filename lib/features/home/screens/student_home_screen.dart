@@ -56,55 +56,62 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          backgroundColor: Colors.white,
-          indicatorColor: const Color(0xFF800000).withValues(alpha: 0.12),
-          elevation: 0,
-          height: 68,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          onDestinationSelected: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline),
-              selectedIcon: Icon(
-                Icons.chat_bubble,
-                color: Color(0xFF800000),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
-              label: 'Chat',
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              backgroundColor: Colors.white,
+              indicatorColor: const Color(0xFF800000).withValues(alpha: 0.15),
+              elevation: 0,
+              height: 64,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  selectedIcon: Icon(
+                    Icons.chat_bubble,
+                    color: Color(0xFF800000),
+                  ),
+                  label: 'Chat',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.favorite_outline),
+                  selectedIcon: Icon(
+                    Icons.favorite,
+                    color: Color(0xFF800000),
+                  ),
+                  label: 'Health',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.campaign_outlined),
+                  selectedIcon: Icon(
+                    Icons.campaign,
+                    color: Color(0xFF800000),
+                  ),
+                  label: 'Updates',
+                ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.favorite_outline),
-              selectedIcon: Icon(
-                Icons.favorite,
-                color: Color(0xFF800000),
-              ),
-              label: 'Health',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.campaign_outlined),
-              selectedIcon: Icon(
-                Icons.campaign,
-                color: Color(0xFF800000),
-              ),
-              label: 'Updates',
-            ),
-          ],
+          ),
         ),
       ),
     );
