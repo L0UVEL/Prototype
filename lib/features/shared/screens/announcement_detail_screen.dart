@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/services/announcement_service.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/pdf_saver/pdf_saver.dart';
+import 'pdf_viewer_screen.dart';
 
 class AnnouncementDetailScreen extends StatelessWidget {
   final String announcementId;
@@ -106,7 +107,7 @@ class AnnouncementDetailScreen extends StatelessWidget {
   }
 }
 
-/// Card widget for a single PDF attachment with download action.
+/// Card widget for a single PDF attachment with view & download actions.
 class _PdfAttachmentCard extends StatefulWidget {
   final PdfAttachment pdf;
 
@@ -118,6 +119,14 @@ class _PdfAttachmentCard extends StatefulWidget {
 
 class _PdfAttachmentCardState extends State<_PdfAttachmentCard> {
   bool _downloading = false;
+
+  void _viewPdf() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PdfViewerScreen(pdf: widget.pdf),
+      ),
+    );
+  }
 
   Future<void> _downloadPdf() async {
     setState(() => _downloading = true);
@@ -176,52 +185,71 @@ class _PdfAttachmentCardState extends State<_PdfAttachmentCard> {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 6,
-        ),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF800000).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: _viewPdf,
+        borderRadius: BorderRadius.circular(14),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 6,
           ),
-          child: const Icon(
-            Icons.picture_as_pdf,
-            color: Color(0xFF800000),
-            size: 24,
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF800000).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.picture_as_pdf,
+              color: Color(0xFF800000),
+              size: 24,
+            ),
           ),
-        ),
-        title: Text(
-          widget.pdf.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+          title: Text(
+            widget.pdf.name,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: const Padding(
-          padding: EdgeInsets.only(top: 2),
-          child: Text(
-            'PDF Document',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-        ),
-        trailing: _downloading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : IconButton(
-                icon: const Icon(
-                  Icons.download_rounded,
-                  color: Color(0xFF800000),
+          subtitle: const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Row(
+              children: [
+                Icon(Icons.visibility, size: 14, color: Colors.grey),
+                SizedBox(width: 4),
+                Text(
+                  'Tap to view',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-                tooltip: 'Download PDF',
-                onPressed: _downloadPdf,
-              ),
+              ],
+            ),
+          ),
+          trailing: _downloading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.download_rounded,
+                        color: Color(0xFF800000),
+                      ),
+                      tooltip: 'Download PDF',
+                      onPressed: _downloadPdf,
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey,
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }

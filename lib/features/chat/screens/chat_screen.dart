@@ -103,7 +103,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ChatMessage(
         id: 'welcome',
         text:
-            'Hello! I am your UniHealth AI Assistant. I can help you with:\n\n• **Health questions** – symptoms, wellness, nutrition, and more\n• **Using the app** – how to book appointments, do daily check-ins, manage your health profile, and navigate the system\n\nRemember, I am an AI, not a doctor. If you have an emergency, please visit the Nurse or call 911.',
+            'Hello! I am your UniHealth AI Assistant. I can help you with:\n\n\n• **Health questions** – symptoms, wellness, nutrition, and more\n\n• **Using the app** – how to book appointments, do daily check-ins, manage your health profile, and navigate the system\n\nRemember, I am an AI, not a doctor. If you have an emergency, please visit the Nurse or call 911.',
         isUser: false,
         timestamp: DateTime.now(),
       ),
@@ -168,26 +168,50 @@ class _ChatScreenState extends State<ChatScreen> {
     contextBuffer.writeln("");
     contextBuffer.writeln("=== SYSTEM FEATURES YOU MUST KNOW ABOUT ===");
     contextBuffer.writeln("");
-    contextBuffer.writeln("1. **Daily Check-in**: Students must complete a daily health check-in every day. They select their mood (Great, Good, Okay, Bad, Terrible), optionally select symptoms (Headache, Fever, Cough, Fatigue, Nauseous, Anxiety, Stress, Insomnia), and add notes. If mood is 'Bad'/'Terrible' or symptoms are reported, status becomes 'At Risk'; otherwise 'Cleared'. Students can access it from the Home screen by tapping the 'Start' button on the Daily Check-in card. Route: tap the Daily Check-in card on the home screen.");
+    contextBuffer.writeln(
+      "1. **Daily Check-in**: Students must complete a daily health check-in every day. They select their mood (Great, Good, Okay, Bad, Terrible), optionally select symptoms (Headache, Fever, Cough, Fatigue, Nauseous, Anxiety, Stress, Insomnia), and add notes. If mood is 'Bad'/'Terrible' or symptoms are reported, status becomes 'At Risk'; otherwise 'Cleared'. Students can access it from the Home screen by tapping the 'Start' button on the Daily Check-in card. Route: tap the Daily Check-in card on the home screen.",
+    );
     contextBuffer.writeln("");
-    contextBuffer.writeln("2. **Book Appointment / Schedule Checkup**: Students can book a nurse/clinic appointment. They must first complete their Daily Check-in for the day before booking. They pick a date (Sundays excluded), select a time slot (8:00 AM to 3:30 PM, 30-minute intervals, with a lunch break from 11:30 AM to 1:00 PM), and enter a reason for the visit. Already-taken slots appear greyed out. Appointment statuses: Pending, Approved, Completed, Cancelled. Students can delete appointments. Access it from: the Home screen 'Book' button on the Appointments card, or the side drawer menu 'Schedule Checkup'.");
+    contextBuffer.writeln(
+      "2. **Book Appointment / Schedule Checkup**: Students can book a nurse/clinic appointment. They must first complete their Daily Check-in for the day before booking. They pick a date (Sundays excluded), select a time slot (8:00 AM to 3:30 PM, 30-minute intervals, with a lunch break from 11:30 AM to 1:00 PM), and enter a reason for the visit. Already-taken slots appear greyed out. Appointment statuses: Pending, Approved, Completed, Cancelled. Students can delete appointments. Access it from: the Home screen 'Book' button on the Appointments card, or the side drawer menu 'Schedule Checkup'.",
+    );
     contextBuffer.writeln("");
-    contextBuffer.writeln("3. **Health Profile**: Students can manage their health profile which includes: profile picture, height & weight (body measurements), blood type (A+, A-, B+, B-, AB+, AB-, O+, O-), allergies (Peanuts, Shellfish, Dairy, Gluten, Pollen, Dust, Latex, Pet Dander, Eggs, Soy, Medication, Insect Stings), medical conditions (Asthma, Diabetes, Hypertension, Heart Disease, Epilepsy, Anemia, Migraine, Scoliosis, ADHD, Thyroid Disorder, Anxiety Disorder, Depression), emergency contact, and additional health info notes. Access it from: the avatar/profile icon on the home screen header, or the side drawer menu 'Health Profile'.");
+    contextBuffer.writeln(
+      "3. **Health Profile**: Students can manage their health profile which includes: profile picture, height & weight (body measurements), blood type (A+, A-, B+, B-, AB+, AB-, O+, O-), allergies (Peanuts, Shellfish, Dairy, Gluten, Pollen, Dust, Latex, Pet Dander, Eggs, Soy, Medication, Insect Stings), medical conditions (Asthma, Diabetes, Hypertension, Heart Disease, Epilepsy, Anemia, Migraine, Scoliosis, ADHD, Thyroid Disorder, Anxiety Disorder, Depression), emergency contact, and additional health info notes. Access it from: the avatar/profile icon on the home screen header, or the side drawer menu 'Health Profile'.",
+    );
     contextBuffer.writeln("");
-    contextBuffer.writeln("4. **Health Summary**: Displayed on the home screen, it shows the student's latest health status (Healthy, At Risk, Missed Check-in, No Data) along with when they last checked in.");
+    contextBuffer.writeln(
+      "4. **Health Summary**: Displayed on the home screen, it shows the student's latest health status (Healthy, At Risk, Missed Check-in, No Data) along with when they last checked in.",
+    );
     contextBuffer.writeln("");
-    contextBuffer.writeln("5. **Announcements**: Health-related announcements from the admin/nurse are displayed on the home screen. Students can tap to view full details.");
+    contextBuffer.writeln(
+      "5. **Announcements**: Health-related announcements from the admin/nurse are displayed on the home screen. Students can tap to view full details.",
+    );
     contextBuffer.writeln("");
-    contextBuffer.writeln("6. **AI Health Chat (this chat)**: Students can ask health-related questions and questions about how to use the UniHealth system. The AI uses the student's latest check-in data to provide personalized advice.");
+    contextBuffer.writeln(
+      "6. **AI Health Chat (this chat)**: Students can ask health-related questions and questions about how to use the UniHealth system. The AI uses the student's latest check-in data to provide personalized advice.",
+    );
     contextBuffer.writeln("");
-    contextBuffer.writeln("7. **Navigation**: The app has a side drawer menu (hamburger icon) with links to: AI Chat, Health Profile, and Schedule Checkup. The home screen is the main hub with cards for Daily Check-in, Announcements, Health Summary, and Appointments.");
+    contextBuffer.writeln(
+      "7. **Navigation**: The app has a side drawer menu (hamburger icon) with links to: AI Chat, Health Profile, and Schedule Checkup. The home screen is the main hub with cards for Daily Check-in, Announcements, Health Summary, and Appointments.",
+    );
     contextBuffer.writeln("");
     contextBuffer.writeln("=== RESPONSE RULES ===");
-    contextBuffer.writeln("- You MUST answer questions about the UniHealth system features described above. Guide users on how to use the app, explain features, and help them navigate.");
-    contextBuffer.writeln("- You MUST answer health-related questions (symptoms, wellness, medicine, mental health, nutrition, exercise, etc.).");
-    contextBuffer.writeln("- You must REJECT any question that is NOT about health AND NOT about the UniHealth system. This includes: programming, math, pop culture, weather, general trivia, politics, sports scores, recipes unrelated to health, etc.");
-    contextBuffer.writeln("- If the user asks a question not related to health or the UniHealth system, respond EXACTLY with: \"I'm sorry, I can only help with health-related questions and questions about how to use the UniHealth system. Please ask me about your health or how to use a feature!\"");
-    contextBuffer.writeln("- Always remind users you are an AI, not a doctor. For emergencies, advise them to visit the Nurse or call emergency services.");
+    contextBuffer.writeln(
+      "- You MUST answer questions about the UniHealth system features described above. Guide users on how to use the app, explain features, and help them navigate.",
+    );
+    contextBuffer.writeln(
+      "- You MUST answer health-related questions (symptoms, wellness, medicine, mental health, nutrition, exercise, etc.).",
+    );
+    contextBuffer.writeln(
+      "- You must REJECT any question that is NOT about health AND NOT about the UniHealth system. This includes: programming, math, pop culture, weather, general trivia, politics, sports scores, recipes unrelated to health, etc.",
+    );
+    contextBuffer.writeln(
+      "- If the user asks a question not related to health or the UniHealth system, respond EXACTLY with: \"I'm sorry, I can only help with health-related questions and questions about how to use the UniHealth system. Please ask me about your health or how to use a feature!\"",
+    );
+    contextBuffer.writeln(
+      "- Always remind users you are an AI, not a doctor. For emergencies, advise them to visit the Nurse or call emergency services.",
+    );
     contextBuffer.writeln("");
 
     final fullPrompt =

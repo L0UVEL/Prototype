@@ -103,7 +103,17 @@ class AIService {
     String modelName, {
     List<Content>? history,
   }) async {
-    final model = GenerativeModel(model: modelName, apiKey: _apiKey);
+    final systemInstruction = Content.system(
+      'You are a helpful AI assistant. '
+      'You can answer questions and provide guidance related to general medicine for common issues or health. '
+      'You also understand Filipino languages. If the user asks a question using a Filipino language, you must answer it in a Filipino language or Taglish.',
+    );
+
+    final model = GenerativeModel(
+      model: modelName,
+      apiKey: _apiKey,
+      systemInstruction: systemInstruction,
+    );
     final chat = model.startChat(history: history);
     final response = await chat.sendMessage(Content.text(message));
     return response.text ?? "I'm sorry, I couldn't generate a response.";
