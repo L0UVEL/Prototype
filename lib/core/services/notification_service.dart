@@ -11,33 +11,6 @@ import 'package:firebase_core/firebase_core.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   debugPrint("Handling a background message: ${message.messageId}");
-  
-  // Display the notification manually
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
-
-  final title = message.data['title'] ?? message.notification?.title ?? 'New Notification';
-  final body = message.data['body'] ?? message.notification?.body ?? '';
-
-  const AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
-    'high_importance_channel', // id
-    'High Importance Notifications', // title
-    channelDescription: 'This channel is used for important notifications.', // description
-    importance: Importance.max,
-    priority: Priority.high,
-    ticker: 'ticker',
-  );
-
-  const NotificationDetails notificationDetails = NotificationDetails(android: androidNotificationDetails);
-
-  await flutterLocalNotificationsPlugin.show(
-    id: message.hashCode,
-    title: title,
-    body: body,
-    notificationDetails: notificationDetails,
-  );
 }
 
 class NotificationService {
@@ -119,14 +92,14 @@ class NotificationService {
       debugPrint('Got a message whilst in the foreground!');
       debugPrint('Message data: ${message.data}');
 
-      final title = message.notification?.title ?? message.data['title'] ?? 'New Notification';
-      final body = message.notification?.body ?? message.data['body'] ?? '';
-
-      showNotification(
-        id: message.hashCode,
-        title: title,
-        body: body,
-      );
+      if (message.notification != null) {
+        debugPrint('Message also contained a notification: ${message.notification}');
+        showNotification(
+          id: message.hashCode,
+          title: message.notification?.title ?? 'New Notification',
+          body: message.notification?.body ?? '',
+        );
+      }
     });
 
     // 5. Get FCM Token and Subscribe to Announcements
