@@ -67,21 +67,22 @@ module.exports = async (req, res) => {
 
   try {
     const message = {
-      notification: {
+      data: {
         title: title,
         body: body,
       },
       android: {
         priority: 'high',
-        notification: {
-          channelId: 'high_importance_channel',
-        },
       },
       apns: {
         payload: {
           aps: {
-            contentAvailable: true,
+            alert: {
+              title: title,
+              body: body,
+            },
             sound: 'default',
+            contentAvailable: true,
           },
         },
       },

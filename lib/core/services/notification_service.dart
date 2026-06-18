@@ -4,13 +4,40 @@ import 'package:flutter/foundation.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 // Top-level function for background handling
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // If you're going to use other Firebase services in the background, such as Firestore,
-  // make sure you call `Firebase.initializeApp` before using other Firebase services.
+  await Firebase.initializeApp();
   debugPrint("Handling a background message: ${message.messageId}");
+  
+  // Display the notification manually
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+  final title = message.data['title'] ?? message.notification?.title ?? 'New Notification';
+  final body = message.data['body'] ?? message.notification?.body ?? '';
+
+  const AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
+    'high_importance_channel', // id
+    'High Importance Notifications', // title
+    channelDescription: 'This channel is used for important notifications.', // description
+    importance: Importance.max,
+    priority: Priority.high,
+    ticker: 'ticker',
+  );
+
+  const NotificationDetails notificationDetails = NotificationDetails(android: androidNotificationDetails);
+
+  await flutterLocalNotificationsPlugin.show(
+    message.hashCode,
+    title,
+    body,
+    notificationDetails,
+  );
 }
 
 class NotificationService {
@@ -92,16 +119,14 @@ class NotificationService {
       debugPrint('Got a message whilst in the foreground!');
       debugPrint('Message data: ${message.data}');
 
-      if (message.notification != null) {
-        debugPrint(
-          'Message also contained a notification: ${message.notification}',
-        );
-        showNotification(
-          id: message.hashCode,
-          title: message.notification?.title ?? 'New Notification',
-          body: message.notification?.body ?? '',
-        );
-      }
+      final title = message.notification?.title ?? message.data['title'] ?? 'New Notification';
+      final body = message.notification?.body ?? message.data['body'] ?? '';
+
+      showNotification(
+        id: message.hashCode,
+        title: title,
+        body: body,
+      );
     });
 
     // 5. Get FCM Token and Subscribe to Announcements
