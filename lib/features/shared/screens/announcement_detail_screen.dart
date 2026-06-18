@@ -7,15 +7,49 @@ import '../../../core/utils/image_utils.dart';
 import '../../../core/utils/pdf_saver/pdf_saver.dart';
 import 'pdf_viewer_screen.dart';
 
-class AnnouncementDetailScreen extends StatelessWidget {
+class AnnouncementDetailScreen extends StatefulWidget {
   final String announcementId;
 
   const AnnouncementDetailScreen({super.key, required this.announcementId});
 
   @override
+  State<AnnouncementDetailScreen> createState() =>
+      _AnnouncementDetailScreenState();
+}
+
+class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
+  List<PdfAttachment>? _loadedPdfs;
+  bool _loadingPdfs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPdfs();
+  }
+
+  Future<void> _loadPdfs() async {
+    setState(() => _loadingPdfs = true);
+    try {
+      final pdfs = await context
+          .read<AnnouncementService>()
+          .loadPdfAttachments(widget.announcementId);
+      if (mounted) {
+        setState(() {
+          _loadedPdfs = pdfs;
+          _loadingPdfs = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading PDF attachments: $e');
+      if (mounted) setState(() => _loadingPdfs = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final announcementService = context.watch<AnnouncementService>();
-    final announcement = announcementService.getAnnouncement(announcementId);
+    final announcement =
+        announcementService.getAnnouncement(widget.announcementId);
 
     if (announcement == null) {
       return Scaffold(
@@ -23,6 +57,11 @@ class AnnouncementDetailScreen extends StatelessWidget {
         body: const Center(child: Text('Announcement not found')),
       );
     }
+
+    // Use loaded subcollection PDFs, fall back to inline (legacy) PDFs
+    final pdfsToShow = _loadedPdfs != null && _loadedPdfs!.isNotEmpty
+        ? _loadedPdfs!
+        : announcement.pdfAttachments;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Announcement')),
@@ -73,7 +112,15 @@ class AnnouncementDetailScreen extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             // ─── PDF Attachments Section ───
-            if (announcement.pdfAttachments.isNotEmpty) ...[
+            if (_loadingPdfs) ...[
+              const SizedBox(height: 24),
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ] else if (pdfsToShow.isNotEmpty) ...[
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 12),
@@ -84,7 +131,7 @@ class AnnouncementDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              ...announcement.pdfAttachments.map((pdf) {
+              ...pdfsToShow.map((pdf) {
                 return _PdfAttachmentCard(pdf: pdf);
               }),
             ],

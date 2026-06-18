@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -48,6 +49,9 @@ class Announcement {
   // Backward compatibility
   String? get imageUrl => imageUrls.isNotEmpty ? imageUrls.first : null;
 
+  /// Serialises the announcement for the main Firestore document.
+  /// NOTE: PDF attachments are stored in a subcollection (pdf_chunks),
+  /// NOT in this map, to avoid the 1 MiB document size limit.
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'id': id,
@@ -65,12 +69,9 @@ class Announcement {
       map['imageCount'] = imageUrls.length;
     }
 
-    // Store PDF attachments as a JSON-encoded string to avoid nested entity
-    // errors on the Firestore web SDK
+    // Store the number of PDFs so the UI knows to lazy-load them
     if (pdfAttachments.isNotEmpty) {
-      map['pdfAttachmentsJson'] = jsonEncode(
-        pdfAttachments.map((p) => p.toMap()).toList(),
-      );
+      map['pdfCount'] = pdfAttachments.length;
     }
 
     return map;
@@ -243,13 +244,19 @@ class AnnouncementService extends ChangeNotifier {
     return attachments;
   }
 
+  /// Maximum main-document size for images (leave headroom under 1 MiB).
+  static const int _maxMainDocBytes = 800 * 1024; // ~800 KB
+
+  /// Chunk size for PDF subcollection documents.
+  static const int _chunkSize = 800 * 1024; // ~800 KB per chunk
+
   Future<void> addAnnouncement(
     String title,
     String content, {
     List<XFile> images = const [],
     List<PlatformFile> pdfs = const [],
   }) async {
-    // 1. Process images to base64 first
+    // 1. Process images to base64
     List<String> base64Images = [];
     if (images.isNotEmpty) {
       base64Images = await _processImagesToBase64(images);
@@ -261,32 +268,124 @@ class AnnouncementService extends ChangeNotifier {
       pdfAttachments = await _processPdfsToBase64(pdfs);
     }
 
+    // 3. Validate main document size (images + metadata, NO PDFs)
+    int mainDocSize = title.length + content.length + 200;
+    for (final img in base64Images) {
+      mainDocSize += img.length;
+    }
+    if (mainDocSize > _maxMainDocBytes) {
+      final sizeMB = (mainDocSize / (1024 * 1024)).toStringAsFixed(1);
+      throw Exception(
+        'Images are too large (${sizeMB}MB total). '
+        'Please use smaller or fewer images (max ~800KB combined).',
+      );
+    }
+
+    // Create announcement (PDFs excluded from main doc)
+    final announcementId = const Uuid().v4();
     final announcement = Announcement(
-      id: const Uuid().v4(),
+      id: announcementId,
       title: title,
       content: content,
       timestamp: DateTime.now(),
       imageUrls: base64Images,
-      pdfAttachments: pdfAttachments,
+      pdfAttachments: pdfAttachments, // kept in model for pdfCount
       adminId: _auth.currentUser?.uid ?? '',
     );
 
-    // 3. Add to Firestore
-    // The Firestore snapshot listener will handle notifications for all devices
+    // 4. Write main document to Firestore
+    final docRef = _firestore.collection('announcements').doc(announcementId);
     try {
-      await _firestore
-          .collection('announcements')
-          .doc(announcement.id)
-          .set(announcement.toMap());
+      await docRef.set(announcement.toMap());
     } catch (e) {
       debugPrint('Error creating announcement: $e');
       rethrow;
     }
 
+    // 5. Write PDF attachments to subcollection as chunks
+    for (int i = 0; i < pdfAttachments.length; i++) {
+      final pdf = pdfAttachments[i];
+      final dataUri = pdf.dataUri;
+      final totalChunks = (dataUri.length / _chunkSize).ceil();
+
+      for (int j = 0; j < totalChunks; j++) {
+        final start = j * _chunkSize;
+        final end = min(start + _chunkSize, dataUri.length);
+        await docRef.collection('pdf_chunks').doc('pdf${i}_chunk$j').set({
+          'pdfIndex': i,
+          'chunkIndex': j,
+          'totalChunks': totalChunks,
+          'name': pdf.name,
+          'data': dataUri.substring(start, end),
+        });
+      }
+    }
+
     // notifyListeners is handled by the stream listener
   }
 
+  /// Loads PDF attachments from the subcollection for a given announcement.
+  /// Returns legacy inline PDFs if no subcollection data exists.
+  Future<List<PdfAttachment>> loadPdfAttachments(String announcementId) async {
+    // First check if there are PDFs in the subcollection
+    final snapshot = await _firestore
+        .collection('announcements')
+        .doc(announcementId)
+        .collection('pdf_chunks')
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      // Fall back to inline PDFs from the in-memory model (legacy support)
+      final announcement = getAnnouncement(announcementId);
+      return announcement?.pdfAttachments ?? [];
+    }
+
+    // Group chunks by pdfIndex
+    final Map<int, List<QueryDocumentSnapshot>> grouped = {};
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final pdfIndex = data['pdfIndex'] as int;
+      grouped.putIfAbsent(pdfIndex, () => []).add(doc);
+    }
+
+    // Reconstruct each PDF from its chunks
+    final List<PdfAttachment> pdfs = [];
+    final sortedKeys = grouped.keys.toList()..sort();
+
+    for (final key in sortedKeys) {
+      final chunks = grouped[key]!;
+      chunks.sort((a, b) {
+        final aData = a.data() as Map<String, dynamic>;
+        final bData = b.data() as Map<String, dynamic>;
+        return (aData['chunkIndex'] as int).compareTo(bData['chunkIndex'] as int);
+      });
+
+      final firstData = chunks.first.data() as Map<String, dynamic>;
+      final name = firstData['name'] as String;
+      final fullData = chunks.map((c) {
+        final d = c.data() as Map<String, dynamic>;
+        return d['data'] as String;
+      }).join();
+
+      pdfs.add(PdfAttachment(name: name, dataUri: fullData));
+    }
+
+    return pdfs;
+  }
+
   Future<void> deleteAnnouncement(String id) async {
+    // Delete PDF chunks subcollection first (Firestore doesn't auto-delete subcollections)
+    final chunks = await _firestore
+        .collection('announcements')
+        .doc(id)
+        .collection('pdf_chunks')
+        .get();
+
+    for (final doc in chunks.docs) {
+      await doc.reference.delete();
+    }
+
+    // Then delete the main document
     await _firestore.collection('announcements').doc(id).delete();
   }
 

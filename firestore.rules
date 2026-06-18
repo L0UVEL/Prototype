@@ -54,6 +54,12 @@ service cloud.firestore {
       
       // Write: Only Admins can create/edit/delete announcements.
       allow write: if isAuthenticated() && isAdmin();
+
+      // PDF chunks subcollection (large PDFs split across documents)
+      match /pdf_chunks/{chunkId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isAdmin();
+      }
     }
 
     // --- AI Chats Collection Rules ---
