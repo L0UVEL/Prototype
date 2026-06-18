@@ -5,6 +5,7 @@
     "build": "bash build.sh"
   },
   "dependencies": {
-    "nodemailer": "^6.9.13"
+    "nodemailer": "^6.9.13",
+    "firebase-admin": "^12.1.1"
   }
 }

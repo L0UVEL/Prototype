@@ -8,6 +8,8 @@ import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
+import 'package:http/http.dart' as http;
+import '../env/env.dart';
 import 'notification_service.dart';
 
 /// Represents a PDF attachment stored as a base64 data URI.
@@ -319,6 +321,34 @@ class AnnouncementService extends ChangeNotifier {
           'data': dataUri.substring(start, end),
         });
       }
+    }
+
+    // 6. Send Push Notification via Vercel API
+    try {
+      final origin = Uri.base.origin;
+      final apiUrl = '$origin/api/send-notification';
+      final cleanPassword = Env.smtpPassword.replaceAll(' ', ''); 
+      
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $cleanPassword',
+        },
+        body: jsonEncode({
+          'topic': 'announcements',
+          'title': '📢 $title',
+          'body': content.length > 100 ? '${content.substring(0, 100)}...' : content,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        debugPrint('Vercel API error (${response.statusCode}): ${response.body}');
+      } else {
+        debugPrint('Push notification sent successfully via Vercel API');
+      }
+    } catch (e) {
+      debugPrint('Failed to send push notification: $e');
     }
 
     // notifyListeners is handled by the stream listener

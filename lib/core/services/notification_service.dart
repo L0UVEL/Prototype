@@ -94,7 +94,14 @@ class NotificationService {
       }
     });
 
-    // 5. Get FCM Token (for testing/backend)
+    // 5. Get FCM Token and Subscribe to Announcements
+    try {
+      await _firebaseMessaging.subscribeToTopic('announcements');
+      debugPrint('Subscribed to topic: announcements');
+    } catch (e) {
+      debugPrint('Failed to subscribe to topic: $e');
+    }
+    
     final token = await _firebaseMessaging.getToken();
     debugPrint("FCM Token: $token");
   }
@@ -185,23 +192,12 @@ class NotificationService {
     );
   }
 
-  tz.TZDateTime _nextInstanceOfTenAM() {
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      10,
-    );
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-    return scheduledDate;
-  }
-
-  Future<void> scheduleDailyCheckInReminder() async {
+  Future<void> scheduleDailyCheckInReminders({bool startTomorrow = false}) async {
     if (kIsWeb) return;
+
+    // First cancel any existing check-in reminders
+    await cancelCheckInReminders();
+
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
           'reminder_channel',
@@ -215,19 +211,48 @@ class NotificationService {
       android: androidNotificationDetails,
     );
 
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      id: 999,
-      title: 'Daily Check-in Reminder',
-      body: 'Don\'t forget to complete your daily health check-in!',
-      scheduledDate: _nextInstanceOfTenAM(),
-      notificationDetails: notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+    final now = tz.TZDateTime.now(tz.local);
+    // Schedule reminders for 8am, 10am, 12pm, 2pm, 4pm, 6pm, 8pm
+    final hours = [8, 10, 12, 14, 16, 18, 20];
+
+    for (int i = 0; i < hours.length; i++) {
+      int hour = hours[i];
+      tz.TZDateTime scheduledDate = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        hour,
+      );
+
+      if (startTomorrow) {
+        // We want to skip today and start tomorrow
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      } else {
+        // If startTomorrow is false, we want to schedule it for today if the time hasn't passed.
+        // If the time has already passed today, it should be scheduled for tomorrow.
+        if (scheduledDate.isBefore(now)) {
+          scheduledDate = scheduledDate.add(const Duration(days: 1));
+        }
+      }
+
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
+        id: 990 + i, // Unique ID for each reminder time
+        title: 'Daily Check-in Reminder',
+        body: 'Don\'t forget to complete your daily health check-in!',
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
   }
 
-  Future<void> cancelCheckInReminder() async {
+  Future<void> cancelCheckInReminders() async {
     if (kIsWeb) return;
-    await _flutterLocalNotificationsPlugin.cancel(id: 999);
+    // Cancel all the IDs used for check-in reminders
+    for (int i = 0; i < 7; i++) {
+      await _flutterLocalNotificationsPlugin.cancel(id: 990 + i);
+    }
   }
 }
