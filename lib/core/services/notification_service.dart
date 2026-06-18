@@ -66,6 +66,16 @@ class NotificationService {
         >();
     if (androidImplementation != null) {
       await androidImplementation.requestNotificationsPermission();
+
+      // Create a high importance channel for FCM background notifications
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'high_importance_channel', // id
+        'High Importance Notifications', // title
+        description: 'This channel is used for important notifications.', // description
+        importance: Importance.high,
+      );
+
+      await androidImplementation.createNotificationChannel(channel);
     }
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {

@@ -71,6 +71,20 @@ module.exports = async (req, res) => {
         title: title,
         body: body,
       },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'high_importance_channel',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            contentAvailable: true,
+            sound: 'default',
+          },
+        },
+      },
       topic: topic,
     };
 
