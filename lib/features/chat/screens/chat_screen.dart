@@ -9,7 +9,6 @@ import '../../../core/services/ai_service.dart';
 import '../../../core/services/activity_log_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:go_router/go_router.dart';
 
 class ChatMessage {
   final String id;
@@ -261,7 +260,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Health Assistant', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'AI Health Assistant',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFF800000),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -321,7 +323,10 @@ class _ChatScreenState extends State<ChatScreen> {
                           decoration: const InputDecoration(
                             hintText: 'Type your message...',
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                           ),
                           onSubmitted: (_) => _sendMessage(),
                         ),
@@ -380,9 +385,7 @@ class _ChatBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         decoration: BoxDecoration(
-          color: isUser
-              ? const Color(0xFF800000)
-              : Colors.grey.shade100,
+          color: isUser ? const Color(0xFF800000) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20).copyWith(
             bottomRight: isUser ? const Radius.circular(4) : null,
             bottomLeft: !isUser ? const Radius.circular(4) : null,

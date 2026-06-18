@@ -54,8 +54,10 @@ class Announcement {
       'title': title,
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
-      'imageUrls': imageUrls,
-      'pdfAttachments': pdfAttachments.map((p) => p.toMap()).toList(),
+      'imageUrls': List<dynamic>.from(imageUrls),
+      'pdfAttachments': List<dynamic>.from(
+        pdfAttachments.map((p) => Map<String, dynamic>.from(p.toMap())),
+      ),
       'adminId': adminId,
     };
   }
