@@ -235,10 +235,15 @@ class AnnouncementService extends ChangeNotifier {
 
     // 3. Add to Firestore
     // The Firestore snapshot listener will handle notifications for all devices
-    await _firestore
-        .collection('announcements')
-        .doc(announcement.id)
-        .set(announcement.toMap());
+    try {
+      await _firestore
+          .collection('announcements')
+          .doc(announcement.id)
+          .set(announcement.toMap());
+    } catch (e) {
+      debugPrint('Error creating announcement: $e');
+      rethrow;
+    }
 
     // notifyListeners is handled by the stream listener
   }

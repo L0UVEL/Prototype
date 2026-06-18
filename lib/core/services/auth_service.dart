@@ -55,25 +55,44 @@ class AuthService extends ChangeNotifier {
               firstName: fName,
               lastName: lName,
               roleId: data['roleId'] ?? (data['role'] == 'admin' ? 'admin' : 'student'),
-              role: data['role'] == 'admin' ? UserRole.admin : UserRole.user,
+              role: (data['roleId'] == 'admin' || data['role'] == 'admin') ? UserRole.admin : UserRole.user,
               program: data['program'],
               requiresPasswordChange: data['requiresPasswordChange'] ?? false,
             );
           } else {
-            // Fallback if no document exists
+            // Fallback if no document exists — create one so Firestore
+            // security rules (which check the user doc) can verify the role.
             final fullName = firebaseUser.displayName ?? 'Unknown';
             final nameParts = fullName.split(' ');
+            final detectedRole = firebaseUser.email?.contains('admin') == true ? 'admin' : 'student';
+            final fName = nameParts.isNotEmpty ? nameParts.first : 'User';
+            final lName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
             _currentUser = User(
               id: firebaseUser.uid,
               studentId: '', // Fallback empty
               email: firebaseUser.email ?? '',
-              firstName: nameParts.isNotEmpty ? nameParts.first : 'User',
-              lastName: nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '',
-              roleId: firebaseUser.email?.contains('admin') == true ? 'admin' : 'student',
-              role: firebaseUser.email?.contains('admin') == true
-                  ? UserRole.admin
-                  : UserRole.user,
+              firstName: fName,
+              lastName: lName,
+              roleId: detectedRole,
+              role: detectedRole == 'admin' ? UserRole.admin : UserRole.user,
             );
+
+            // Persist the user doc to Firestore so security rules work
+            try {
+              await _firestore.collection('users').doc(firebaseUser.uid).set({
+                'firstName': fName,
+                'lastName': lName,
+                'email': firebaseUser.email ?? '',
+                'roleId': detectedRole,
+                'role': detectedRole,
+                'studentId': '',
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+              debugPrint('Created missing Firestore user doc for ${firebaseUser.uid} with role=$detectedRole');
+            } catch (e) {
+              debugPrint('Could not create Firestore user doc: $e');
+            }
           }
         } catch (e) {
           debugPrint('Error fetching user profile: $e');
@@ -173,6 +192,7 @@ class AuthService extends ChangeNotifier {
           'email': email,
           'program': program,
           'roleId': roleId, // Match normalized DB
+          'role': roleId, // Also store as 'role' for Firestore security rules compatibility
           'requiresPasswordChange': true, // Force change on first login
           'createdAt': FieldValue.serverTimestamp(),
         });

@@ -4,10 +4,14 @@ service cloud.firestore {
     
     // Helper function to check if the authenticated user is an admin
     function isAdmin() {
-      // Fetch the user's document to check their role.
+      // Check if user document exists first, then verify role.
       // Check both 'roleId' (current schema) and 'role' (legacy) for compatibility.
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc != null && (userDoc.data.roleId == 'admin' || userDoc.data.role == 'admin');
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'admin'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        );
     }
 
     // Helper to check if user is authenticated

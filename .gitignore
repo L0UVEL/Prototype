@@ -16,7 +16,7 @@ migrate_working_dir/
 **/problems-report.html
 graphify-out
 graphify.md
-
+firestore.rules
 
 # IntelliJ related
 *.iml

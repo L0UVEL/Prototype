@@ -60,6 +60,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final contentController = TextEditingController();
     List<XFile> dialogSelectedImages = [];
     List<PlatformFile> dialogSelectedPdfs = [];
+    bool isPosting = false;
 
     showDialog(
       context: context,
@@ -309,25 +310,58 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 child: const Text('Cancel'),
               ),
               FilledButton(
-                onPressed: () {
-                  if (titleController.text.isNotEmpty &&
-                      contentController.text.isNotEmpty) {
-                    context.read<AnnouncementService>().addAnnouncement(
-                      titleController.text,
-                      contentController.text,
-                      images: dialogSelectedImages,
-                      pdfs: dialogSelectedPdfs,
-                    );
-                    Navigator.pop(context);
-                  }
-                },
+                onPressed: isPosting
+                    ? null
+                    : () async {
+                        if (titleController.text.isNotEmpty &&
+                            contentController.text.isNotEmpty) {
+                          setState(() => isPosting = true);
+                          try {
+                            await context
+                                .read<AnnouncementService>()
+                                .addAnnouncement(
+                                  titleController.text,
+                                  contentController.text,
+                                  images: dialogSelectedImages,
+                                  pdfs: dialogSelectedPdfs,
+                                );
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          } catch (e) {
+                            setState(() => isPosting = false);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to create announcement: $e',
+                                  ),
+                                  backgroundColor: Colors.red.shade700,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 5),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF800000),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Post'),
+                child: isPosting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Post'),
               ),
             ],
           );
