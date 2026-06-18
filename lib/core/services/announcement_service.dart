@@ -49,17 +49,31 @@ class Announcement {
   String? get imageUrl => imageUrls.isNotEmpty ? imageUrls.first : null;
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'id': id,
       'title': title,
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
-      'imageUrls': List<dynamic>.from(imageUrls),
-      'pdfAttachments': List<dynamic>.from(
-        pdfAttachments.map((p) => Map<String, dynamic>.from(p.toMap())),
-      ),
       'adminId': adminId,
     };
+
+    // Store image base64 strings individually to avoid array issues on web
+    if (imageUrls.isNotEmpty) {
+      for (int i = 0; i < imageUrls.length; i++) {
+        map['image_$i'] = imageUrls[i];
+      }
+      map['imageCount'] = imageUrls.length;
+    }
+
+    // Store PDF attachments as a JSON-encoded string to avoid nested entity
+    // errors on the Firestore web SDK
+    if (pdfAttachments.isNotEmpty) {
+      map['pdfAttachmentsJson'] = jsonEncode(
+        pdfAttachments.map((p) => p.toMap()).toList(),
+      );
+    }
+
+    return map;
   }
 
   factory Announcement.fromMap(Map<String, dynamic> map) {
@@ -73,17 +87,39 @@ class Announcement {
       dt = DateTime.now();
     }
 
-    final rawPdfs = map['pdfAttachments'] as List<dynamic>? ?? [];
+    // Read images: support both new (image_0, image_1, ...) and legacy (imageUrls array)
+    List<String> images = [];
+    if (map.containsKey('imageCount')) {
+      final count = map['imageCount'] as int;
+      for (int i = 0; i < count; i++) {
+        final img = map['image_$i'];
+        if (img is String) images.add(img);
+      }
+    } else if (map['imageUrls'] != null) {
+      images = List<String>.from(map['imageUrls']);
+    }
+
+    // Read PDFs: support both new (JSON string) and legacy (array of maps)
+    List<PdfAttachment> pdfs = [];
+    if (map.containsKey('pdfAttachmentsJson') && map['pdfAttachmentsJson'] is String) {
+      final decoded = jsonDecode(map['pdfAttachmentsJson'] as String) as List;
+      pdfs = decoded
+          .map((p) => PdfAttachment.fromMap(Map<String, dynamic>.from(p)))
+          .toList();
+    } else {
+      final rawPdfs = map['pdfAttachments'] as List<dynamic>? ?? [];
+      pdfs = rawPdfs
+          .map((p) => PdfAttachment.fromMap(Map<String, dynamic>.from(p)))
+          .toList();
+    }
 
     return Announcement(
       id: map['id'] ?? '',
       title: map['title'] ?? '',
       content: map['content'] ?? '',
       timestamp: dt,
-      imageUrls: List<String>.from(map['imageUrls'] ?? []),
-      pdfAttachments: rawPdfs
-          .map((p) => PdfAttachment.fromMap(Map<String, dynamic>.from(p)))
-          .toList(),
+      imageUrls: images,
+      pdfAttachments: pdfs,
       adminId: map['adminId'] ?? '',
     );
   }
