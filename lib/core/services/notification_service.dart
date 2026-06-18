@@ -16,7 +16,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
   const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
 
   final title = message.data['title'] ?? message.notification?.title ?? 'New Notification';
   final body = message.data['body'] ?? message.notification?.body ?? '';
@@ -33,10 +33,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   const NotificationDetails notificationDetails = NotificationDetails(android: androidNotificationDetails);
 
   await flutterLocalNotificationsPlugin.show(
-    message.hashCode,
-    title,
-    body,
-    notificationDetails,
+    id: message.hashCode,
+    title: title,
+    body: body,
+    notificationDetails: notificationDetails,
   );
 }
 
