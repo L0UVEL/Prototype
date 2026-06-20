@@ -52,9 +52,11 @@ class HealthLandingScreen extends StatelessWidget {
           );
 
           if (checkedInToday) {
-            notificationService.scheduleDailyCheckInReminders(startTomorrow: true);
+            // Already checked in — cancel all remaining reminders for today
+            notificationService.cancelCheckInReminders();
           } else {
-            notificationService.scheduleDailyCheckInReminders(startTomorrow: false);
+            // Not checked in — schedule reminders for today's remaining hours
+            notificationService.scheduleDailyCheckInReminders();
           }
 
           // Calculate health status

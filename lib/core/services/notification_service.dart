@@ -21,7 +21,7 @@ class NotificationService {
   Future<void> init() async {
     // 0. Initialize Timezones
     if (kIsWeb) return;
-    
+
     tz.initializeTimeZones();
     try {
       final tzInfo = await FlutterTimezone.getLocalTimezone();
@@ -61,9 +61,10 @@ class NotificationService {
 
     // Also request local notification permissions for Android 13+
     final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-        _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
+        _flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
     if (androidImplementation != null) {
       await androidImplementation.requestNotificationsPermission();
 
@@ -71,7 +72,8 @@ class NotificationService {
       const AndroidNotificationChannel channel = AndroidNotificationChannel(
         'high_importance_channel', // id
         'High Importance Notifications', // title
-        description: 'This channel is used for important notifications.', // description
+        description:
+            'This channel is used for important notifications.', // description
         importance: Importance.high,
       );
 
@@ -93,7 +95,9 @@ class NotificationService {
       debugPrint('Message data: ${message.data}');
 
       if (message.notification != null) {
-        debugPrint('Message also contained a notification: ${message.notification}');
+        debugPrint(
+          'Message also contained a notification: ${message.notification}',
+        );
         showNotification(
           id: message.hashCode,
           title: message.notification?.title ?? 'New Notification',
@@ -109,7 +113,7 @@ class NotificationService {
     } catch (e) {
       debugPrint('Failed to subscribe to topic: $e');
     }
-    
+
     final token = await _firebaseMessaging.getToken();
     debugPrint("FCM Token: $token");
   }
@@ -200,7 +204,9 @@ class NotificationService {
     );
   }
 
-  Future<void> scheduleDailyCheckInReminders({bool startTomorrow = false}) async {
+  /// Schedule one-shot check-in reminders for today's remaining hours.
+  /// Only call this when the user has NOT checked in today.
+  Future<void> scheduleDailyCheckInReminders() async {
     if (kIsWeb) return;
 
     // First cancel any existing check-in reminders
@@ -220,8 +226,8 @@ class NotificationService {
     );
 
     final now = tz.TZDateTime.now(tz.local);
-    // Schedule reminders for 8am, 10am, 12pm, 2pm, 4pm, 6pm, 8pm
-    final hours = [8, 10, 12, 14, 16, 18, 20];
+    // Schedule reminders for 7am, 8am, 9am, 10am, 11am, 12pm, 2pm, 4pm, 6pm, 8pm
+    final hours = [7, 8, 9, 10, 11, 12, 14, 16, 18, 20];
 
     for (int i = 0; i < hours.length; i++) {
       int hour = hours[i];
@@ -233,34 +239,38 @@ class NotificationService {
         hour,
       );
 
-      if (startTomorrow) {
-        // We want to skip today and start tomorrow
-        scheduledDate = scheduledDate.add(const Duration(days: 1));
-      } else {
-        // If startTomorrow is false, we want to schedule it for today if the time hasn't passed.
-        // If the time has already passed today, it should be scheduled for tomorrow.
-        if (scheduledDate.isBefore(now)) {
-          scheduledDate = scheduledDate.add(const Duration(days: 1));
-        }
+      // Only schedule if the time hasn't passed yet today
+      if (scheduledDate.isBefore(now)) {
+        continue; // Skip past hours, don't push to tomorrow
       }
 
-      await _flutterLocalNotificationsPlugin.zonedSchedule(
-        id: 990 + i, // Unique ID for each reminder time
-        title: 'Daily Check-in Reminder',
-        body: 'Don\'t forget to complete your daily health check-in!',
-        scheduledDate: scheduledDate,
-        notificationDetails: notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
+      try {
+        await _flutterLocalNotificationsPlugin.zonedSchedule(
+          id: 990 + i, // Unique ID for each reminder time
+          title: 'Daily Check-in Reminder',
+          body: 'Don\'t forget to complete your daily health check-in!',
+          scheduledDate: scheduledDate,
+          notificationDetails: notificationDetails,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          // No matchDateTimeComponents — one-shot alarm, not daily repeat
+        );
+      } catch (e) {
+        debugPrint('Failed to schedule reminder for $hour:00 -> $e');
+      }
     }
   }
 
+  /// Cancel all check-in reminders immediately.
+  /// Call this when the user has already checked in today.
   Future<void> cancelCheckInReminders() async {
     if (kIsWeb) return;
-    // Cancel all the IDs used for check-in reminders
-    for (int i = 0; i < 7; i++) {
-      await _flutterLocalNotificationsPlugin.cancel(id: 990 + i);
+    // Cancel all the IDs used for check-in reminders (10 slots)
+    for (int i = 0; i < 10; i++) {
+      try {
+        await _flutterLocalNotificationsPlugin.cancel(id: 990 + i);
+      } catch (e) {
+        debugPrint('Failed to cancel reminder $i: $e');
+      }
     }
   }
 }
