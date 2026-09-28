@@ -142,6 +142,11 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     }
   }
 
+  // Bulk registration state
+  int _bulkTotal = 0;
+  int _bulkProcessed = 0;
+  bool _isBulkRegistering = false;
+
   Future<void> _bulkRegisterUsers() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -153,6 +158,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
       setState(() {
         _isLoading = true;
+        _isBulkRegistering = false;
       });
 
       final pickedFile = result.files.single;
@@ -197,53 +203,205 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
       if (!mounted) return;
 
+      // --- Pre-validation phase ---
+      final dataRows = fields.sublist(1);
+      final List<Map<String, dynamic>> validRows = [];
+      final List<String> preErrors = [];
+      final Set<String> seenEmails = {};
+      int skippedDuplicates = 0;
+      int skippedInvalid = 0;
+
+      for (int i = 0; i < dataRows.length; i++) {
+        final row = dataRows[i];
+        final rowNum = i + 2; // +2 because header is row 1, data starts row 2
+
+        if (row.length < 5) {
+          skippedInvalid++;
+          preErrors.add('Row $rowNum: Not enough columns (need at least 5)');
+          continue;
+        }
+
+        final email = row[4].toString().trim();
+        if (email.isEmpty || !email.contains('@')) {
+          skippedInvalid++;
+          preErrors.add('Row $rowNum: Invalid email "$email"');
+          continue;
+        }
+
+        final emailLower = email.toLowerCase();
+        if (seenEmails.contains(emailLower)) {
+          skippedDuplicates++;
+          preErrors.add('Row $rowNum: Duplicate email "$email" (skipped)');
+          continue;
+        }
+        seenEmails.add(emailLower);
+
+        validRows.add({
+          'rowNum': rowNum,
+          'studentId': row[0].toString().trim(),
+          'firstName': row[1].toString().trim(),
+          'lastName': row[2].toString().trim(),
+          'program': row[3].toString().trim(),
+          'email': email,
+        });
+      }
+
+      // Show pre-validation summary if there are issues
+      if (preErrors.isNotEmpty && mounted) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Color(0xFF800000)),
+                SizedBox(width: 8),
+                Text(
+                  'Pre-Check Results',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '✓ ${validRows.length} students ready to register',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  if (skippedDuplicates > 0 || skippedInvalid > 0) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (skippedDuplicates > 0)
+                            Text('⚠ $skippedDuplicates duplicate emails skipped'),
+                          if (skippedInvalid > 0)
+                            Text('⚠ $skippedInvalid invalid rows skipped'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'Do you want to proceed with registering ${validRows.length} students?',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF800000),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Proceed'),
+              ),
+            ],
+          ),
+        );
+
+        if (proceed != true) {
+          setState(() { _isLoading = false; });
+          return;
+        }
+      }
+
+      if (validRows.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No valid rows found to register'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() { _isLoading = false; });
+        }
+        return;
+      }
+
+      // --- Registration phase with progress + chunking ---
+      if (!mounted) return;
       final authService = context.read<AuthService>();
       int successCount = 0;
       int failCount = 0;
-      List<String> errors = [];
+      List<String> errors = List.from(preErrors);
 
-      // Assume row 0 is header. Start from row 1.
-      for (int i = 1; i < fields.length; i++) {
-        final row = fields[i];
-        if (row.length >= 5) {
-          final studentId = row[0].toString();
-          final firstName = row[1].toString().trim();
-          final lastName = row[2].toString().trim();
-          final program = row[3].toString();
-          final email = row[4].toString();
+      setState(() {
+        _bulkTotal = validRows.length;
+        _bulkProcessed = 0;
+        _isBulkRegistering = true;
+      });
 
-          // Basic validation
-          if (email.isEmpty || !email.contains('@')) {
-            failCount++;
-            errors.add('Row $i: Invalid email $email');
-            continue;
-          }
+      const int chunkSize = 10;
+      const Duration delayBetweenChunks = Duration(seconds: 2);
 
-          final tempPassword = authService.generatePassword();
+      for (int i = 0; i < validRows.length; i++) {
+        final rowData = validRows[i];
 
-          final error = await authService.registerUser(
-            email: email.trim(),
-            password: tempPassword,
-            studentId: studentId.trim(),
-            firstName: firstName,
-            lastName: lastName,
-            roleId: 'student',
-            program: program.trim(),
-          );
+        final tempPassword = authService.generatePassword();
 
-          if (error == null) {
-            successCount++;
-          } else {
-            failCount++;
-            errors.add('Row $i ($email): $error');
-          }
+        final error = await authService.registerUser(
+          email: rowData['email'],
+          password: tempPassword,
+          studentId: rowData['studentId'],
+          firstName: rowData['firstName'],
+          lastName: rowData['lastName'],
+          roleId: 'student',
+          program: rowData['program'],
+        );
+
+        if (error == null) {
+          successCount++;
         } else {
           failCount++;
-          errors.add('Row $i: Insufficient columns');
+          errors.add('Row ${rowData['rowNum']} (${rowData['email']}): $error');
+        }
+
+        if (mounted) {
+          setState(() {
+            _bulkProcessed = i + 1;
+          });
+        }
+
+        // Pause between chunks to avoid Firebase rate limits
+        if ((i + 1) % chunkSize == 0 && i + 1 < validRows.length) {
+          await Future.delayed(delayBetweenChunks);
         }
       }
 
       if (mounted) {
+        setState(() {
+          _isBulkRegistering = false;
+        });
+
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -310,19 +468,27 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   if (errors.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     const Text(
-                      'Errors:',
+                      'Details:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
-                    ...errors.map(
-                      (e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          e,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                          ),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: errors.map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                e,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ).toList(),
                         ),
                       ),
                     ),
@@ -358,6 +524,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isBulkRegistering = false;
         });
       }
     }
@@ -367,7 +534,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F5F2),
-      appBar: AppBar(title: const Text('Add New User')),
+      appBar: AppBar(title: const Text('Add New Student')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -428,7 +595,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _isLoading ? null : _bulkRegisterUsers,
                         icon: const Icon(Icons.file_upload_outlined),
-                        label: const Text('Upload CSV / XLSX File'),
+                        label: const Text('Upload Student List (CSV or Excel)'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF800000),
                           side: const BorderSide(color: Color(0xFF800000)),
@@ -447,6 +614,60 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (_isBulkRegistering) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Registering students...',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                                Text(
+                                  '$_bulkProcessed of $_bulkTotal',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: _bulkTotal > 0 ? _bulkProcessed / _bulkTotal : null,
+                              backgroundColor: Colors.grey.shade200,
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF800000)),
+                              minHeight: 6,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _bulkTotal > 0 
+                                  ? '${((_bulkProcessed / _bulkTotal) * 100).toStringAsFixed(0)}%' 
+                                  : '0%',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -610,7 +831,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                 ),
                               )
                             : const Text(
-                                'Create Account',
+                                'Register Student',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,

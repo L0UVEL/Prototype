@@ -373,8 +373,6 @@ class AuthService extends ChangeNotifier {
           userName = userData['firstName'] ?? userData['name'] ?? 'User';
         }
       } catch (e) {
-        // Firestore may deny access for unauthenticated users — that's fine,
-        // we'll just use the default name.
         debugPrint('Could not look up user name (expected if not logged in): $e');
       }
 

@@ -18,6 +18,7 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
   late DateTime _selectedDate;
   bool _isLoading = true;
   List<Map<String, dynamic>> _snapshot = [];
+  String _selectedFilter = 'Daily';
 
   // Computed counts
   Map<String, int> _statusCounts = {
@@ -43,6 +44,45 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
     });
   }
 
+  /// Get the date range based on the selected filter.
+  ({DateTime start, DateTime end}) _getDateRange() {
+    switch (_selectedFilter) {
+      case 'Weekly':
+        // Get the Monday of the week containing the selected date
+        final weekday = _selectedDate.weekday; // 1=Mon, 7=Sun
+        final monday = _selectedDate.subtract(Duration(days: weekday - 1));
+        final sunday = monday.add(const Duration(days: 6));
+        // Clamp end to yesterday at most
+        final yesterday = DateTime.now().subtract(const Duration(days: 1));
+        final clampedEnd = sunday.isAfter(yesterday) ? yesterday : sunday;
+        return (start: monday, end: clampedEnd);
+      case 'Quarterly':
+        // Quarter: Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec
+        final quarterMonth = ((_selectedDate.month - 1) ~/ 3) * 3 + 1;
+        final quarterStart = DateTime(_selectedDate.year, quarterMonth, 1);
+        final quarterEnd = DateTime(_selectedDate.year, quarterMonth + 3, 0);
+        final yesterday = DateTime.now().subtract(const Duration(days: 1));
+        final clampedEnd = quarterEnd.isAfter(yesterday) ? yesterday : quarterEnd;
+        return (start: quarterStart, end: clampedEnd);
+      default: // Daily
+        return (start: _selectedDate, end: _selectedDate);
+    }
+  }
+
+  /// Get a display label for the current date range.
+  String _getDateRangeLabel() {
+    final range = _getDateRange();
+    switch (_selectedFilter) {
+      case 'Weekly':
+        return '${DateFormat('MMM d').format(range.start)} – ${DateFormat('MMM d, y').format(range.end)}';
+      case 'Quarterly':
+        final quarter = ((range.start.month - 1) ~/ 3) + 1;
+        return 'Q$quarter ${range.start.year} (${DateFormat('MMM').format(range.start)} – ${DateFormat('MMM').format(range.end)})';
+      default:
+        return DateFormat('EEEE, MMMM d, y').format(_selectedDate);
+    }
+  }
+
   Future<void> _loadSnapshot() async {
     setState(() {
       _isLoading = true;
@@ -50,7 +90,47 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
 
     try {
       final healthService = context.read<HealthService>();
-      final snapshot = await healthService.getHealthSnapshotForDate(_selectedDate);
+
+      List<Map<String, dynamic>> aggregatedSnapshot;
+
+      if (_selectedFilter == 'Daily') {
+        // Single day — existing behavior
+        aggregatedSnapshot = await healthService.getHealthSnapshotForDate(_selectedDate);
+      } else {
+        // Multi-day aggregation (Weekly or Quarterly)
+        final range = _getDateRange();
+        List<DateTime> datesToSample = [];
+
+        if (_selectedFilter == 'Weekly') {
+          // Sample every day in the week
+          var current = range.start;
+          while (!current.isAfter(range.end)) {
+            datesToSample.add(current);
+            current = current.add(const Duration(days: 1));
+          }
+        } else {
+          // Quarterly: sample one day per week to keep performance manageable
+          var current = range.start;
+          while (!current.isAfter(range.end)) {
+            datesToSample.add(current);
+            current = current.add(const Duration(days: 7));
+          }
+          // Always include the last day of the range
+          if (datesToSample.isEmpty || datesToSample.last != range.end) {
+            datesToSample.add(range.end);
+          }
+        }
+
+        // Fetch snapshots for all sampled dates
+        final List<List<Map<String, dynamic>>> allSnapshots = [];
+        for (var date in datesToSample) {
+          final snapshot = await healthService.getHealthSnapshotForDate(date);
+          allSnapshots.add(snapshot);
+        }
+
+        // Aggregate: for each student, pick the worst status across all days
+        aggregatedSnapshot = _aggregateSnapshots(allSnapshots);
+      }
 
       final Map<String, int> counts = {
         'Healthy': 0,
@@ -64,7 +144,7 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
       final List<Map<String, dynamic>> healthy = [];
       final List<Map<String, dynamic>> noData = [];
 
-      for (var entry in snapshot) {
+      for (var entry in aggregatedSnapshot) {
         final status = entry['status'] as String;
         counts[status] = (counts[status] ?? 0) + 1;
 
@@ -85,7 +165,7 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
 
       if (mounted) {
         setState(() {
-          _snapshot = snapshot;
+          _snapshot = aggregatedSnapshot;
           _statusCounts = counts;
           _atRiskStudents = atRisk;
           _monitorStudents = monitor;
@@ -107,6 +187,45 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
         );
       }
     }
+  }
+
+  /// Aggregates multiple daily snapshots into one.
+  /// For each student, the worst status across all days is kept.
+  /// Priority: At Risk > Missed Check-in > Healthy > No Data
+  List<Map<String, dynamic>> _aggregateSnapshots(
+    List<List<Map<String, dynamic>>> allSnapshots,
+  ) {
+    // Map studentId -> best (worst) entry
+    final Map<String, Map<String, dynamic>> studentMap = {};
+
+    int statusPriority(String status) {
+      switch (status) {
+        case 'At Risk':
+          return 3;
+        case 'Missed Check-in':
+          return 2;
+        case 'Healthy':
+          return 1;
+        case 'No Data':
+        default:
+          return 0;
+      }
+    }
+
+    for (var snapshot in allSnapshots) {
+      for (var entry in snapshot) {
+        final student = entry['student'] as User;
+        final status = entry['status'] as String;
+        final existing = studentMap[student.id];
+
+        if (existing == null ||
+            statusPriority(status) > statusPriority(existing['status'] as String)) {
+          studentMap[student.id] = entry;
+        }
+      }
+    }
+
+    return studentMap.values.toList();
   }
 
   Future<void> _pickDate() async {
@@ -145,9 +264,9 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
       case 'At Risk':
         return const Color(0xFFD32F2F);
       case 'Missed Check-in':
-        return const Color(0xFFFFA000);
+        return const Color(0xFFE65100);
       case 'No Data':
-        return const Color(0xFF9E9E9E);
+        return const Color(0xFF607D8B);
       default:
         return Colors.grey;
     }
@@ -174,6 +293,10 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                 children: [
                   // Date Selector Card
                   _buildDateSelector(),
+                  const SizedBox(height: 12),
+
+                  // Filter Toggle (Daily / Weekly / Quarterly)
+                  _buildFilterToggle(),
                   const SizedBox(height: 20),
 
                   // Summary Cards
@@ -195,19 +318,19 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                         'At Risk',
                         _statusCounts['At Risk'].toString(),
                         Icons.warning,
-                        const Color(0xFFD32F2F),
+                        _getStatusColor('At Risk'),
                       ),
                       _buildSummaryCard(
                         'Missed Check-in',
                         _statusCounts['Missed Check-in'].toString(),
-                        Icons.visibility,
-                        const Color(0xFFFFA000),
+                        Icons.schedule,
+                        _getStatusColor('Missed Check-in'),
                       ),
                       _buildSummaryCard(
                         'Healthy',
                         _statusCounts['Healthy'].toString(),
                         Icons.check_circle,
-                        const Color(0xFF388E3C),
+                        _getStatusColor('Healthy'),
                       ),
                     ],
                   ),
@@ -222,7 +345,7 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                     _buildStudentCategorySection(
                       'At Risk',
                       _atRiskStudents,
-                      const Color(0xFFD32F2F),
+                      _getStatusColor('At Risk'),
                       Icons.warning,
                     ),
                   if (_monitorStudents.isNotEmpty) ...[
@@ -230,8 +353,8 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                     _buildStudentCategorySection(
                       'Missed Check-in',
                       _monitorStudents,
-                      const Color(0xFFFFA000),
-                      Icons.visibility,
+                      _getStatusColor('Missed Check-in'),
+                      Icons.schedule,
                     ),
                   ],
                   if (_healthyStudents.isNotEmpty) ...[
@@ -239,7 +362,7 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                     _buildStudentCategorySection(
                       'Healthy',
                       _healthyStudents,
-                      const Color(0xFF388E3C),
+                      _getStatusColor('Healthy'),
                       Icons.check_circle,
                     ),
                   ],
@@ -248,7 +371,7 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                     _buildStudentCategorySection(
                       'No Data',
                       _noDataStudents,
-                      const Color(0xFF9E9E9E),
+                      _getStatusColor('No Data'),
                       Icons.help_outline,
                     ),
                   ],
@@ -256,6 +379,75 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildFilterToggle() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(4),
+      child: SegmentedButton<String>(
+        segments: const [
+          ButtonSegment(
+            value: 'Daily',
+            label: Text('Daily'),
+            icon: Icon(Icons.today, size: 18),
+          ),
+          ButtonSegment(
+            value: 'Weekly',
+            label: Text('Weekly'),
+            icon: Icon(Icons.date_range, size: 18),
+          ),
+          ButtonSegment(
+            value: 'Quarterly',
+            label: Text('Quarterly'),
+            icon: Icon(Icons.calendar_view_month, size: 18),
+          ),
+        ],
+        selected: {_selectedFilter},
+        onSelectionChanged: (Set<String> selection) {
+          setState(() {
+            _selectedFilter = selection.first;
+          });
+          _loadSnapshot();
+        },
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith<Color?>(
+            (states) {
+              if (states.contains(WidgetState.selected)) {
+                return const Color(0xFF800000);
+              }
+              return Colors.transparent;
+            },
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith<Color?>(
+            (states) {
+              if (states.contains(WidgetState.selected)) {
+                return Colors.white;
+              }
+              return Colors.grey.shade700;
+            },
+          ),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          side: WidgetStateProperty.all(BorderSide.none),
+        ),
+      ),
     );
   }
 
@@ -300,7 +492,9 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Viewing Analytics For',
+                    _selectedFilter == 'Daily'
+                        ? 'Viewing Analytics For'
+                        : 'Viewing $_selectedFilter Analytics',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 13,
@@ -308,7 +502,7 @@ class _AdminPastAnalyticsScreenState extends State<AdminPastAnalyticsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    DateFormat('EEEE, MMMM d, y').format(_selectedDate),
+                    _getDateRangeLabel(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,

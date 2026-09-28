@@ -17,6 +17,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   final _reasonController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  List<DateTime> _disabledDates = [];
 
   @override
   void dispose() {
@@ -29,13 +30,31 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final initialDate =
         now.weekday == DateTime.sunday ? now.add(const Duration(days: 1)) : now;
 
+    // Fetch disabled dates before showing picker
+    final healthService = Provider.of<HealthService>(context, listen: false);
+    try {
+      _disabledDates = await healthService.getDisabledDatesStream().first;
+    } catch (_) {
+      _disabledDates = [];
+    }
+
+    if (!context.mounted) return;
+
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: now,
       lastDate: DateTime(2101),
       selectableDayPredicate: (DateTime date) {
-        return date.weekday != DateTime.sunday;
+        // Block Sundays
+        if (date.weekday == DateTime.sunday) return false;
+        // Block admin-disabled dates
+        for (var d in _disabledDates) {
+          if (d.year == date.year && d.month == date.month && d.day == date.day) {
+            return false;
+          }
+        }
+        return true;
       },
       builder: (context, child) {
         return Theme(
@@ -249,7 +268,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final healthService = Provider.of<HealthService>(context);
     final user = authService.currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text('Schedule Checkup')),
+      appBar: AppBar(title: const Text('Book an Appointment')),
       body: StreamBuilder<List<Appointment>>(
         stream: user != null
             ? healthService.getAppointmentsStream(userId: user.id)
@@ -401,7 +420,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       child: const Padding(
                         padding: EdgeInsets.symmetric(vertical: 24.0),
                         child: Text(
-                          'You must complete your Daily Check-in today before booking an appointment.',
+                          'Please complete today\'s Health Check-In first before booking an appointment.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.red,
@@ -467,7 +486,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         TextField(
                           controller: _reasonController,
                           decoration: const InputDecoration(
-                            labelText: 'Reason for visit',
+                            labelText: 'What do you need help with?',
+                            hintText: 'e.g. Headache, feeling dizzy, need consultation',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -482,7 +502,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             ),
                             elevation: 2,
                           ),
-                          child: const Text('Schedule Appointment', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Book My Appointment', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),

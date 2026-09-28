@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/utils/file_image_helper_stub.dart'
     if (dart.library.io) '../../../core/utils/file_image_helper_io.dart';
@@ -370,6 +371,297 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _showManageAvailabilityDialog(BuildContext context) {
+    final reasonController = TextEditingController();
+    DateTime? selectedDate;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final healthService = context.read<HealthService>();
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.event_busy, color: Color(0xFF800000)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Manage Clinic Availability',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Disable a date when the clinic is unavailable (e.g. nurse is absent, school holiday).',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Date selector
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now().add(const Duration(days: 1)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(
+                                    primary: Color(0xFF800000),
+                                    onPrimary: Colors.white,
+                                    surface: Colors.white,
+                                    onSurface: Color(0xFF2D2D2D),
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              selectedDate = picked;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today, color: Color(0xFF800000)),
+                        label: Text(
+                          selectedDate == null
+                              ? 'Pick a date to disable'
+                              : DateFormat('EEEE, MMM d, y').format(selectedDate!),
+                          style: TextStyle(
+                            color: selectedDate == null ? Colors.grey.shade600 : const Color(0xFF2D2D2D),
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF800000),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Reason
+                    TextField(
+                      controller: reasonController,
+                      decoration: InputDecoration(
+                        labelText: 'Reason',
+                        hintText: 'e.g. Nurse on leave, School holiday',
+                        prefixIcon: const Icon(Icons.note_alt_outlined, color: Color(0xFF800000)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFF800000), width: 2),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Disable button
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          if (selectedDate == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Please select a date'),
+                                backgroundColor: Colors.red.shade400,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            );
+                            return;
+                          }
+                          final reason = reasonController.text.trim();
+                          if (reason.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Please provide a reason'),
+                                backgroundColor: Colors.red.shade400,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            );
+                            return;
+                          }
+
+                          final adminId = context.read<AuthService>().currentUser?.id ?? '';
+                          await healthService.disableAppointmentDate(selectedDate!, reason, adminId);
+
+                          if (context.mounted) {
+                            setState(() {
+                              selectedDate = null;
+                              reasonController.clear();
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Date disabled. Affected appointments have been cancelled.'),
+                                backgroundColor: const Color(0xFF388E3C),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.block, size: 18),
+                        label: const Text('Disable This Date'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Currently disabled dates
+                    Text(
+                      'Currently Disabled Dates',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: healthService.getDisabledDatesWithReasonsStream(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        }
+
+                        final disabledDates = snapshot.data ?? [];
+                        // Sort by date
+                        disabledDates.sort((a, b) =>
+                            (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+
+                        if (disabledDates.isEmpty) {
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Text(
+                              'No dates are currently disabled.\nAll appointment slots are available.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: disabledDates.map((entry) {
+                            final date = entry['date'] as DateTime;
+                            final reason = entry['reason'] as String;
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.red.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.event_busy, size: 20, color: Colors.red.shade400),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          DateFormat('MMM d, y (EEEE)').format(date),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        Text(
+                                          reason,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.restore, size: 20, color: Colors.green.shade600),
+                                    tooltip: 'Re-enable this date',
+                                    onPressed: () async {
+                                      await healthService.enableAppointmentDate(date);
+                                    },
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(6),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade600,
+                ),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -405,11 +697,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
       backgroundColor: Colors.white,
       foregroundColor: const Color(0xFF800000),
       actions: [
+        if (_selectedIndex == 1)
+          Padding(
+            padding: const EdgeInsets.only(right: 4.0),
+            child: IconButton(
+              icon: const Icon(Icons.event_busy),
+              tooltip: 'Manage clinic availability',
+              onPressed: () => _showManageAvailabilityDialog(context),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.only(right: 8.0),
           child: IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
+            tooltip: 'Sign out of your account',
             onPressed: () async {
               await context.read<AuthService>().logout();
             },
@@ -446,7 +747,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         },
         icon: const Icon(Icons.person_add),
         label: const Text(
-          'Register Student',
+          'Add Student',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         backgroundColor: const Color(0xFF800000),
@@ -532,16 +833,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
         onDestinationSelected: _onItemTapped,
         backgroundColor: Colors.white,
         indicatorColor: const Color(0xFF800000).withValues(alpha: 0.1),
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.campaign_outlined),
             selectedIcon: Icon(Icons.campaign, color: Color(0xFF800000)),
-            label: 'Home',
+            label: 'Announcements',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month, color: Color(0xFF800000)),
-            label: 'Schedule',
+            label: 'Appointments',
           ),
           NavigationDestination(
             icon: Icon(Icons.people_outline),
@@ -556,7 +858,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           NavigationDestination(
             icon: Icon(Icons.local_activity_outlined),
             selectedIcon: Icon(Icons.local_activity, color: Color(0xFF800000)),
-            label: 'Logs',
+            label: 'Activity Logs',
           ),
         ],
       ),

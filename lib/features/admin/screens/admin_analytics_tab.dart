@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import '../../../core/utils/report_helper_stub.dart'
     if (dart.library.io) '../../../core/utils/report_helper_io.dart';
 import '../../../core/services/health_service.dart';
-import '../../../core/services/ai_service.dart';
 import 'admin_past_analytics_screen.dart';
 
 class AdminAnalyticsTab extends StatefulWidget {
@@ -19,9 +18,6 @@ class AdminAnalyticsTab extends StatefulWidget {
 
 class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
   Timer? _updateTimer;
-  String _aiSummary = "Analyzing data...";
-  String _lastDataHash = "";
-  bool _isAnalyzing = false;
   List<dynamic> _reports = [];
 
   // State for analytics
@@ -29,7 +25,7 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
   Map<String, int> _statusCounts = {
     'Healthy': 0,
     'At Risk': 0,
-    'Monitor': 0,
+    'Missed Check-in': 0,
     'No Data': 0,
   };
   Map<String, int> _programCounts = {};
@@ -39,14 +35,14 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
   void initState() {
     super.initState();
     _loadReports();
-    // Initial analysis
+    // Initial data load
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndAnalyzeData();
+      _loadAnalyticsData();
     });
 
     // Auto-update every minute
     _updateTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      _checkAndAnalyzeData();
+      _loadAnalyticsData();
       _loadReports(); // Also refresh reports list periodically
     });
   }
@@ -77,7 +73,7 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
     }
   }
 
-  Future<void> _checkAndAnalyzeData() async {
+  Future<void> _loadAnalyticsData() async {
     if (!mounted) return;
 
     final healthService = context.read<HealthService>();
@@ -89,7 +85,7 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
       final Map<String, int> statusCounts = {
         'Healthy': 0,
         'At Risk': 0,
-        'Monitor': 0,
+        'Missed Check-in': 0,
         'No Data': 0,
       };
       final Map<String, int> programCounts = {};
@@ -99,7 +95,9 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
         final logs = await healthService.getDailyLogsStream(student.id).first;
         final statusData = healthService.calculateStudentStatus(logs);
         final status = statusData['status'] as String;
-        statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+        // Map 'Monitor' status to 'Missed Check-in' for consistent labeling
+        final normalizedStatus = status == 'Monitor' ? 'Missed Check-in' : status;
+        statusCounts[normalizedStatus] = (statusCounts[normalizedStatus] ?? 0) + 1;
 
         final program = student.program ?? 'Unknown';
         programCounts[program] = (programCounts[program] ?? 0) + 1;
@@ -113,64 +111,11 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
           _isLoadingData = false;
         });
       }
-
-      // Create a simple hash/string of the current data state to detect changes
-      final currentDataHash =
-          "Total:$totalStudents|Healthy:${statusCounts['Healthy']}|AtRisk:${statusCounts['At Risk']}|Monitor:${statusCounts['Monitor']}";
-
-      if (currentDataHash != _lastDataHash) {
-        _lastDataHash = currentDataHash;
-        await _generateAISummary(totalStudents, statusCounts);
-      }
     } catch (e) {
-      debugPrint("Error analyzing data: $e");
+      debugPrint("Error loading analytics data: $e");
       if (mounted) {
         setState(() {
           _isLoadingData = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _generateAISummary(int total, Map<String, int> counts) async {
-    if (_isAnalyzing) return;
-
-    setState(() {
-      _isAnalyzing = true;
-      _aiSummary = "Updating analysis...";
-    });
-
-    try {
-      final prompt =
-          """
-      Analyze the following student health data for a school dashboard.
-      Total Students: $total
-      Healthy: ${counts['Healthy']}
-      At Risk: ${counts['At Risk']}
-      Monitor: ${counts['Monitor']}
-      No Data: ${counts['No Data']}
-      
-      Provide a 2-sentence summary of the overall health status of the student population.
-      Focus on critical areas (At Risk/Monitor). Keep it professional and concise.
-      """;
-
-      final response = await context.read<AIService>().getResponse(prompt);
-
-      if (mounted) {
-        setState(() {
-          _aiSummary = response;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _aiSummary = "Unable to generate analysis at this time.";
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAnalyzing = false;
         });
       }
     }
@@ -196,10 +141,10 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
               return const Color(0xFF388E3C);
             case 'At Risk':
               return const Color(0xFFD32F2F);
-            case 'Monitor':
-              return const Color(0xFFFFA000);
+            case 'Missed Check-in':
+              return const Color(0xFFE65100);
             case 'No Data':
-              return const Color(0xFF9E9E9E);
+              return const Color(0xFF607D8B);
             default:
               return Colors.grey;
           }
@@ -210,79 +155,6 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // AI Summary Card
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF800000), Color(0xFF5C0000)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF800000).withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.auto_awesome,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'AI Health Analysis',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          if (_isAnalyzing) ...[
-                            const Spacer(),
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _aiSummary,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Updates automatically every minute',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
               // Past Analytics Button
               GestureDetector(
                 onTap: () {
@@ -337,7 +209,7 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Browse historical health status data by date',
+                              'See past student health reports',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade500,
@@ -377,21 +249,21 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
                     'At Risk',
                     statusCounts['At Risk'].toString(),
                     Icons.warning,
-                    Colors.red,
+                    const Color(0xFFD32F2F),
                   ),
                   _buildSummaryCard(
                     context,
-                    'Monitor',
-                    statusCounts['Monitor'].toString(),
-                    Icons.visibility,
-                    Colors.orange,
+                    'Missed Check-in',
+                    statusCounts['Missed Check-in'].toString(),
+                    Icons.schedule,
+                    const Color(0xFFE65100),
                   ),
                   _buildSummaryCard(
                     context,
                     'Healthy',
                     statusCounts['Healthy'].toString(),
                     Icons.check_circle,
-                    Colors.green,
+                    const Color(0xFF388E3C),
                   ),
                 ],
               ),
@@ -404,7 +276,7 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
                   child: Column(
                     children: [
                       Text(
-                        'Health Status Distribution',
+                        'Student Health Overview',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 16),
@@ -465,7 +337,7 @@ class _AdminAnalyticsTabState extends State<AdminAnalyticsTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Students per Program',
+                        'Students by Course',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 16),

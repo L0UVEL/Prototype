@@ -488,7 +488,7 @@ class _AdminAppointmentsScreenState extends State<AdminAppointmentsScreen> {
                                                       ),
                                                       padding: const EdgeInsets.symmetric(horizontal: 20),
                                                     ),
-                                                    child: const Text('Decline'),
+                                                    child: const Text('Decline Request'),
                                                   ),
                                                   const SizedBox(width: 12),
                                                   FilledButton(
@@ -505,7 +505,7 @@ class _AdminAppointmentsScreenState extends State<AdminAppointmentsScreen> {
                                                       ),
                                                       padding: const EdgeInsets.symmetric(horizontal: 20),
                                                     ),
-                                                    child: const Text('Approve'),
+                                                    child: const Text('Approve Request'),
                                                   ),
                                                 ] else if (appt.status.toLowerCase() == 'approved') ...[
                                                   FilledButton.icon(
@@ -516,7 +516,7 @@ class _AdminAppointmentsScreenState extends State<AdminAppointmentsScreen> {
                                                       );
                                                     },
                                                     icon: const Icon(Icons.check, size: 18),
-                                                    label: const Text('Mark Completed'),
+                                                    label: const Text('Done — Mark as Completed'),
                                                     style: FilledButton.styleFrom(
                                                       backgroundColor: const Color(0xFF4CAF50),
                                                       shape: RoundedRectangleBorder(

@@ -461,6 +461,74 @@ class HealthService extends ChangeNotifier {
     return snapshot;
   }
 
+  // --- Disabled Appointment Dates ---
+
+  /// Disable a specific date for appointments.
+  /// Auto-cancels any pending appointments on that date.
+  Future<void> disableAppointmentDate(DateTime date, String reason, String adminId) async {
+    final dateStr = _formatDateKey(date);
+    await _firestore.collection('disabled_dates').doc(dateStr).set({
+      'date': dateStr,
+      'reason': reason,
+      'disabledBy': adminId,
+      'disabledAt': FieldValue.serverTimestamp(),
+    });
+
+    // Cancel all pending appointments on this date
+    final pendingAppts = await _firestore.collection('appointments')
+        .where('status', isEqualTo: 'Pending')
+        .get();
+
+    final batch = _firestore.batch();
+    for (var doc in pendingAppts.docs) {
+      final appt = Appointment.fromMap(doc.data(), doc.id);
+      final apptDateStr = _formatDateKey(appt.appointmentDate);
+      if (apptDateStr == dateStr) {
+        batch.update(doc.reference, {
+          'status': 'cancelled',
+          'cancellationReason': 'Clinic unavailable: $reason',
+        });
+        // Also free the taken slot
+        final slotId = appt.appointmentDate.toIso8601String();
+        batch.delete(_firestore.collection('taken_slots').doc(slotId));
+      }
+    }
+    await batch.commit();
+  }
+
+  /// Re-enable a previously disabled date.
+  Future<void> enableAppointmentDate(DateTime date) async {
+    final dateStr = _formatDateKey(date);
+    await _firestore.collection('disabled_dates').doc(dateStr).delete();
+  }
+
+  /// Stream of all disabled dates with their reasons.
+  Stream<List<Map<String, dynamic>>> getDisabledDatesWithReasonsStream() {
+    return _firestore.collection('disabled_dates').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'date': DateTime.parse(data['date'] as String),
+          'reason': data['reason'] as String? ?? '',
+        };
+      }).toList();
+    });
+  }
+
+  /// Stream of disabled dates (DateTime only) for date picker blocking.
+  Stream<List<DateTime>> getDisabledDatesStream() {
+    return _firestore.collection('disabled_dates').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return DateTime.parse(doc.data()['date'] as String);
+      }).toList();
+    });
+  }
+
+  /// Formats a DateTime as yyyy-MM-dd for Firestore document IDs.
+  String _formatDateKey(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
   String _formatDate(DateTime date) {
     return '${date.month}/${date.day}';
   }
