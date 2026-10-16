@@ -27,8 +27,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Future<void> _selectDate(BuildContext context) async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final initialDate =
-        now.weekday == DateTime.sunday ? now.add(const Duration(days: 1)) : now;
+        today.weekday == DateTime.sunday ? today.add(const Duration(days: 1)) : today;
 
     // Fetch disabled dates before showing picker
     final healthService = Provider.of<HealthService>(context, listen: false);
@@ -43,7 +44,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: now,
+      firstDate: today,
       lastDate: DateTime(2101),
       selectableDayPredicate: (DateTime date) {
         // Block Sundays
@@ -215,6 +216,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         _reasonController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    final isDateDisabled = _disabledDates.any((d) =>
+        d.year == _selectedDate!.year &&
+        d.month == _selectedDate!.month &&
+        d.day == _selectedDate!.day);
+    if (isDateDisabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The selected date is unavailable for appointments. Please choose another date.'),
+        ),
       );
       return;
     }

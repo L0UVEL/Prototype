@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/utils/file_image_helper_stub.dart'
     if (dart.library.io) '../../../core/utils/file_image_helper_io.dart';
@@ -374,12 +375,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showManageAvailabilityDialog(BuildContext context) {
     final reasonController = TextEditingController();
     DateTime? selectedDate;
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          final healthService = context.read<HealthService>();
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final healthService = dialogContext.read<HealthService>();
 
           return AlertDialog(
             shape: RoundedRectangleBorder(
@@ -414,32 +416,36 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now().add(const Duration(days: 1)),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: const ColorScheme.light(
-                                    primary: Color(0xFF800000),
-                                    onPrimary: Colors.white,
-                                    surface: Colors.white,
-                                    onSurface: Color(0xFF2D2D2D),
-                                  ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              selectedDate = picked;
-                            });
-                          }
-                        },
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
+                                final picked = await showDatePicker(
+                                  context: dialogContext,
+                                  initialDate: selectedDate ?? today,
+                                  firstDate: today,
+                                  lastDate: today.add(const Duration(days: 365)),
+                                  builder: (context, child) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: const ColorScheme.light(
+                                          primary: Color(0xFF800000),
+                                          onPrimary: Colors.white,
+                                          surface: Colors.white,
+                                          onSurface: Color(0xFF2D2D2D),
+                                        ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    selectedDate = picked;
+                                  });
+                                }
+                              },
                         icon: const Icon(Icons.calendar_today, color: Color(0xFF800000)),
                         label: Text(
                           selectedDate == null
@@ -464,6 +470,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     // Reason
                     TextField(
                       controller: reasonController,
+                      enabled: !isSubmitting,
                       decoration: InputDecoration(
                         labelText: 'Reason',
                         hintText: 'e.g. Nurse on leave, School holiday',
@@ -489,51 +496,84 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: () async {
-                          if (selectedDate == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Please select a date'),
-                                backgroundColor: Colors.red.shade400,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                            );
-                            return;
-                          }
-                          final reason = reasonController.text.trim();
-                          if (reason.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Please provide a reason'),
-                                backgroundColor: Colors.red.shade400,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                            );
-                            return;
-                          }
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                if (selectedDate == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text('Please select a date to disable'),
+                                      backgroundColor: Colors.red.shade400,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                final reason = reasonController.text.trim();
+                                if (reason.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text('Please provide a reason (e.g. Nurse absent)'),
+                                      backgroundColor: Colors.red.shade400,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                          final adminId = context.read<AuthService>().currentUser?.id ?? '';
-                          await healthService.disableAppointmentDate(selectedDate!, reason, adminId);
+                                setDialogState(() {
+                                  isSubmitting = true;
+                                });
 
-                          if (context.mounted) {
-                            setState(() {
-                              selectedDate = null;
-                              reasonController.clear();
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Date disabled. Affected appointments have been cancelled.'),
-                                backgroundColor: const Color(0xFF388E3C),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.block, size: 18),
-                        label: const Text('Disable This Date'),
+                                try {
+                                  final authService = dialogContext.read<AuthService>();
+                                  final adminId = authService.currentUser?.id.isNotEmpty == true
+                                      ? authService.currentUser!.id
+                                      : (FirebaseAuth.instance.currentUser?.uid ?? 'admin');
+
+                                  await healthService.disableAppointmentDate(selectedDate!, reason, adminId);
+
+                                  if (dialogContext.mounted) {
+                                    setDialogState(() {
+                                      selectedDate = null;
+                                      reasonController.clear();
+                                      isSubmitting = false;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text('Date disabled. Affected appointments have been cancelled.'),
+                                        backgroundColor: const Color(0xFF388E3C),
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (dialogContext.mounted) {
+                                    setDialogState(() {
+                                      isSubmitting = false;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Failed to disable date: $e'),
+                                        backgroundColor: Colors.red.shade600,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                        icon: isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.block, size: 18),
+                        label: Text(isSubmitting ? 'Disabling Date...' : 'Disable This Date'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.red.shade600,
                           shape: RoundedRectangleBorder(
@@ -557,11 +597,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     const SizedBox(height: 8),
                     StreamBuilder<List<Map<String, dynamic>>>(
                       stream: healthService.getDisabledDatesWithReasonsStream(),
-                      builder: (context, snapshot) {
+                      builder: (streamContext, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Padding(
                             padding: EdgeInsets.all(16.0),
                             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text(
+                              'Unable to load disabled dates: ${snapshot.error}',
+                              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                            ),
                           );
                         }
 
@@ -631,7 +687,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     icon: Icon(Icons.restore, size: 20, color: Colors.green.shade600),
                                     tooltip: 'Re-enable this date',
                                     onPressed: () async {
-                                      await healthService.enableAppointmentDate(date);
+                                      try {
+                                        await healthService.enableAppointmentDate(date);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('${DateFormat('MMM d, y').format(date)} re-enabled successfully.'),
+                                              backgroundColor: const Color(0xFF388E3C),
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Failed to re-enable date: $e'),
+                                              backgroundColor: Colors.red.shade600,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            ),
+                                          );
+                                        }
+                                      }
                                     },
                                     constraints: const BoxConstraints(),
                                     padding: const EdgeInsets.all(6),
@@ -649,7 +728,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  reasonController.dispose();
+                  Navigator.pop(dialogContext);
+                },
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.grey.shade600,
                 ),

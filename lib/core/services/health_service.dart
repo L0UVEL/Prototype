@@ -464,7 +464,7 @@ class HealthService extends ChangeNotifier {
   // --- Disabled Appointment Dates ---
 
   /// Disable a specific date for appointments.
-  /// Auto-cancels any pending appointments on that date.
+  /// Auto-cancels any active (Pending/Approved) appointments on that date.
   Future<void> disableAppointmentDate(DateTime date, String reason, String adminId) async {
     final dateStr = _formatDateKey(date);
     await _firestore.collection('disabled_dates').doc(dateStr).set({
@@ -474,26 +474,43 @@ class HealthService extends ChangeNotifier {
       'disabledAt': FieldValue.serverTimestamp(),
     });
 
-    // Cancel all pending appointments on this date
-    final pendingAppts = await _firestore.collection('appointments')
-        .where('status', isEqualTo: 'Pending')
-        .get();
+    // Cancel all active appointments on this date
+    try {
+      final apptsSnapshot = await _firestore.collection('appointments').get();
+      final batch = _firestore.batch();
+      bool hasUpdates = false;
 
-    final batch = _firestore.batch();
-    for (var doc in pendingAppts.docs) {
-      final appt = Appointment.fromMap(doc.data(), doc.id);
-      final apptDateStr = _formatDateKey(appt.appointmentDate);
-      if (apptDateStr == dateStr) {
-        batch.update(doc.reference, {
-          'status': 'cancelled',
-          'cancellationReason': 'Clinic unavailable: $reason',
-        });
-        // Also free the taken slot
-        final slotId = appt.appointmentDate.toIso8601String();
-        batch.delete(_firestore.collection('taken_slots').doc(slotId));
+      for (var doc in apptsSnapshot.docs) {
+        try {
+          final data = doc.data();
+          final status = (data['status'] as String? ?? '').toLowerCase();
+          // Cancel pending and approved appointments for this date
+          if (status == 'pending' || status == 'approved') {
+            final appt = Appointment.fromMap(data, doc.id);
+            final apptDateStr = _formatDateKey(appt.appointmentDate);
+            if (apptDateStr == dateStr) {
+              batch.update(doc.reference, {
+                'status': 'Cancelled',
+                'cancellationReason': 'Clinic unavailable: $reason',
+              });
+              // Also free the taken slot
+              final rawSlot = data['appointmentDate']?.toString() ?? appt.appointmentDate.toIso8601String();
+              batch.delete(_firestore.collection('taken_slots').doc(rawSlot));
+              hasUpdates = true;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error inspecting appointment doc ${doc.id}: $e');
+        }
       }
+
+      // CRITICAL: Only commit if there are actual write operations in the batch
+      if (hasUpdates) {
+        await batch.commit();
+      }
+    } catch (e) {
+      debugPrint('Error auto-cancelling appointments for date $dateStr: $e');
     }
-    await batch.commit();
   }
 
   /// Re-enable a previously disabled date.
@@ -507,8 +524,18 @@ class HealthService extends ChangeNotifier {
     return _firestore.collection('disabled_dates').snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
         final data = doc.data();
+        final rawDate = data['date'];
+        DateTime? parsedDate;
+        if (rawDate is Timestamp) {
+          parsedDate = rawDate.toDate();
+        } else if (rawDate is String) {
+          parsedDate = DateTime.tryParse(rawDate);
+        }
+        parsedDate ??= DateTime.tryParse(doc.id) ?? DateTime.now();
+
         return {
-          'date': DateTime.parse(data['date'] as String),
+          'id': doc.id,
+          'date': parsedDate,
           'reason': data['reason'] as String? ?? '',
         };
       }).toList();
@@ -519,7 +546,17 @@ class HealthService extends ChangeNotifier {
   Stream<List<DateTime>> getDisabledDatesStream() {
     return _firestore.collection('disabled_dates').snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
-        return DateTime.parse(doc.data()['date'] as String);
+        final data = doc.data();
+        final rawDate = data['date'];
+        DateTime? parsedDate;
+        if (rawDate is Timestamp) {
+          parsedDate = rawDate.toDate();
+        } else if (rawDate is String) {
+          parsedDate = DateTime.tryParse(rawDate);
+        }
+        parsedDate ??= DateTime.tryParse(doc.id) ?? DateTime.now();
+
+        return parsedDate;
       }).toList();
     });
   }

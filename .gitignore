@@ -38,6 +38,8 @@ firestore.rules
 .pub/
 /build/
 /coverage/
+firestore.rules
+firebase.json
 
 # Symbolication related
 app.*.symbols

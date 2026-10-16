@@ -80,6 +80,14 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // --- Disabled Dates Collection Rules ---
+    match /disabled_dates/{dateId} {
+      // Read: Any authenticated user can read disabled dates to know clinic availability
+      allow read: if isAuthenticated();
+      // Write: Only Admins can disable/enable dates
+      allow write: if isAuthenticated() && isAdmin();
+    }
+
     // --- Roles Collection Rules ---
     match /roles/{roleId} {
       // Any authenticated user can read roles (needed for role lookups)
