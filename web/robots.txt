@@ -1,8 +1,9 @@
 User-agent: *
 Allow: /
 
-# Private application areas
+# Disallow private administrative areas
 Disallow: /admin
 Disallow: /api/
 
+Host: https://pup-health-support-system.vercel.app
 Sitemap: https://pup-health-support-system.vercel.app/sitemap.xml
