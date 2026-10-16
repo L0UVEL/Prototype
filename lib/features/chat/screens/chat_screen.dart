@@ -7,6 +7,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/services/ai_service.dart';
 import '../../../core/services/activity_log_service.dart';
+import '../../../core/services/notification_service.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -321,7 +322,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     IconButton(
                       icon: const Icon(Icons.logout, color: Colors.white),
                       onPressed: () async {
-                        await context.read<AuthService>().logout();
+                        final notifService = context.read<NotificationService>();
+                        await context.read<AuthService>().logout(notifService);
                       },
                     ),
                   ],

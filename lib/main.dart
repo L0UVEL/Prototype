@@ -43,8 +43,16 @@ Future<void> main() async {
     await notificationService.init();
   }
 
+  NotificationService.onNotificationTap = (route) {
+    if (rootNavigatorKey.currentContext != null) {
+      GoRouter.of(rootNavigatorKey.currentContext!).push(route);
+    }
+  };
+
   runApp(MyApp(notificationService: notificationService));
 }
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class MyApp extends StatelessWidget {
   final NotificationService notificationService;
@@ -75,6 +83,7 @@ class AppRouter extends StatelessWidget {
     final authService = Provider.of<AuthService>(context);
 
     final router = GoRouter(
+      navigatorKey: rootNavigatorKey,
       refreshListenable: authService,
       initialLocation: '/splash',
       redirect: (context, state) {

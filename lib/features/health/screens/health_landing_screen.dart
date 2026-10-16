@@ -6,7 +6,6 @@ import '../../../core/services/health_service.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/announcement_service.dart';
 import '../../../core/models/health_model.dart';
-import '../../../core/services/notification_service.dart';
 import '../../../core/utils/image_utils.dart';
 
 class HealthLandingScreen extends StatelessWidget {
@@ -44,19 +43,6 @@ class HealthLandingScreen extends StatelessWidget {
                 latestLog.checkinDate.day == today.day) {
               checkedInToday = true;
             }
-          }
-
-          final notificationService = Provider.of<NotificationService>(
-            context,
-            listen: false,
-          );
-
-          if (checkedInToday) {
-            // Already checked in — cancel all remaining reminders for today
-            notificationService.cancelCheckInReminders();
-          } else {
-            // Not checked in — schedule reminders for today's remaining hours
-            notificationService.scheduleDailyCheckInReminders();
           }
 
           // Calculate health status

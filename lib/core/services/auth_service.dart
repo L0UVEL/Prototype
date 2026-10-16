@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../env/env.dart';
 import '../models/user_model.dart';
 import 'email_log_service.dart';
+import 'notification_service.dart';
 
 // Conditional import: mailer only works on non-web (dart:io)
 import 'package:mailer/mailer.dart';
@@ -136,7 +137,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout([NotificationService? notificationService]) async {
     await _auth.signOut();
     // FlutterSecureStorage may behave differently on web — guard with try-catch
     try {
@@ -144,6 +145,13 @@ class AuthService extends ChangeNotifier {
       await storage.delete(key: 'user_email');
     } catch (e) {
       debugPrint('Could not clean up secure storage: $e');
+    }
+    if (notificationService != null) {
+      try {
+        await notificationService.cancelAllCheckInReminders();
+      } catch (e) {
+        debugPrint('Could not cancel check-in reminders on logout: $e');
+      }
     }
   }
 

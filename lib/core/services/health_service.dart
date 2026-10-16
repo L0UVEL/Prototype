@@ -2,6 +2,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:async';
 import '../models/health_model.dart';
 import '../models/user_model.dart';
@@ -191,6 +192,53 @@ class HealthService extends ChangeNotifier {
         });
   }
 
+  static const _storage = FlutterSecureStorage();
+
+  String _checkInStorageKey(String userId) => 'last_checkin_date_$userId';
+
+  /// Check whether the user has checked in today, checking local storage first for instant response.
+  Future<bool> isCheckedInToday(String userId) async {
+    final now = DateTime.now();
+    final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    try {
+      final cachedDate = await _storage.read(key: _checkInStorageKey(userId));
+      if (cachedDate == todayStr) {
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error reading cached check-in date: $e');
+    }
+
+    // Fallback: check Firestore
+    final latestLog = await getLatestLog(userId);
+    if (latestLog != null) {
+      final logDate = latestLog.checkinDate;
+      if (logDate.year == now.year &&
+          logDate.month == now.month &&
+          logDate.day == now.day) {
+        await recordLocalCheckIn(userId, true);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Store or clear local check-in state.
+  Future<void> recordLocalCheckIn(String userId, bool checkedIn) async {
+    try {
+      if (checkedIn) {
+        final now = DateTime.now();
+        final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        await _storage.write(key: _checkInStorageKey(userId), value: todayStr);
+      } else {
+        await _storage.delete(key: _checkInStorageKey(userId));
+      }
+    } catch (e) {
+      debugPrint('Error recording local check-in: $e');
+    }
+  }
+
   Future<void> addDailyLog(HealthUpdate log) async {
     await _firestore
         .collection('users')
@@ -198,6 +246,9 @@ class HealthService extends ChangeNotifier {
         .collection('health_updates')
         .doc(log.updateId)
         .set(log.toMap());
+
+    // Record local check-in immediately so offline or subsequent checks know today is done
+    await recordLocalCheckIn(log.userId, true);
   }
 
   Future<HealthUpdate?> getLatestLog(String userId) async {

@@ -18,6 +18,7 @@ class StudentHomeScreen extends StatefulWidget {
 class _StudentHomeScreenState extends State<StudentHomeScreen> {
   int _currentIndex = 1; // Default to Health (Daily Check-in)
   StreamSubscription? _appointmentStatusSubscription;
+  StreamSubscription? _dailyCheckInSubscription;
 
   final List<Widget> _screens = const [
     ChatScreen(),
@@ -29,6 +30,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   void initState() {
     super.initState();
     _setupAppointmentNotifications();
+    _setupCheckInNotifications();
   }
 
   void _setupAppointmentNotifications() {
@@ -46,9 +48,45 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     }
   }
 
+  void _setupCheckInNotifications() {
+    final authService = context.read<AuthService>();
+    final healthService = context.read<HealthService>();
+    final notificationService = context.read<NotificationService>();
+    final user = authService.currentUser;
+
+    if (user != null) {
+      // 1. Initial fast sync using cached local check-in state or latest log
+      healthService.isCheckedInToday(user.id).then((checkedIn) {
+        if (mounted) {
+          notificationService.syncCheckInReminders(isCheckedInToday: checkedIn);
+        }
+      });
+
+      // 2. Continuous subscription to daily logs so any submit or remote update is reflected
+      _dailyCheckInSubscription =
+          healthService.getDailyLogsStream(user.id).listen((logs) {
+        bool checkedInToday = false;
+        if (logs.isNotEmpty) {
+          final latestLog = logs.first;
+          final today = DateTime.now();
+          if (latestLog.checkinDate.year == today.year &&
+              latestLog.checkinDate.month == today.month &&
+              latestLog.checkinDate.day == today.day) {
+            checkedInToday = true;
+          }
+        }
+        healthService.recordLocalCheckIn(user.id, checkedInToday);
+        notificationService.syncCheckInReminders(
+          isCheckedInToday: checkedInToday,
+        );
+      });
+    }
+  }
+
   @override
   void dispose() {
     _appointmentStatusSubscription?.cancel();
+    _dailyCheckInSubscription?.cancel();
     super.dispose();
   }
 

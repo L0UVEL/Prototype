@@ -39,6 +39,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
     super.initState();
     _dashboardInitTime = DateTime.now();
     _listenForNewAppointments();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<NotificationService>().cancelAllCheckInReminders();
+      }
+    });
   }
 
   @override

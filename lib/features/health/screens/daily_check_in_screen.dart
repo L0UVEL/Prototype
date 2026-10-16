@@ -5,6 +5,7 @@ import '../../../core/services/health_service.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/models/health_model.dart';
 import '../../../core/services/activity_log_service.dart';
+import '../../../core/services/notification_service.dart';
 
 class DailyCheckInScreen extends StatefulWidget {
   const DailyCheckInScreen({super.key});
@@ -82,6 +83,15 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
           );
         }
       } catch (_) {}
+
+      // Immediately cancel today's reminders so no further notifications fire today
+      try {
+        if (mounted) {
+          await context.read<NotificationService>().cancelTodayCheckInReminders();
+        }
+      } catch (e) {
+        debugPrint('Error canceling today check-in reminders: $e');
+      }
 
       if (mounted) {
         setState(() {
