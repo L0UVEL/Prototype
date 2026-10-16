@@ -16,7 +16,6 @@ migrate_working_dir/
 **/problems-report.html
 graphify-out
 graphify.md
-firestore.rules
 
 # IntelliJ related
 *.iml
@@ -38,8 +37,6 @@ firestore.rules
 .pub/
 /build/
 /coverage/
-firestore.rules
-firebase.json
 
 # Symbolication related
 app.*.symbols
@@ -53,9 +50,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Firebase secrets
+# Firebase secrets & rules
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
+firestore.rules
+firebase.json
 
 # Envied generated files
 lib/core/env/env.g.dart
