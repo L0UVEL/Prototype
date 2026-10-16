@@ -25,9 +25,11 @@ import 'features/auth/screens/change_password_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
