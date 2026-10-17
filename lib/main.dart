@@ -10,7 +10,6 @@ import 'core/services/notification_service.dart';
 import 'core/services/activity_log_service.dart';
 import 'core/models/user_model.dart';
 import 'features/auth/screens/login_screen.dart';
-import 'features/auth/screens/signup_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
 import 'features/admin/screens/admin_dashboard.dart';
 import 'core/services/health_service.dart';
@@ -95,11 +94,10 @@ class AppRouter extends StatelessWidget {
 
         final isLoggedIn = authService.isAuthenticated;
         final isLoggingIn = state.uri.path == '/login';
-        final isSigningUp = state.uri.path == '/signup';
         final isSplash = state.uri.path == '/splash';
 
         if (!isLoggedIn) {
-          return (isLoggingIn || isSigningUp) ? null : '/login';
+          return isLoggingIn ? null : '/login';
         }
 
         // Force password change if required
@@ -114,7 +112,7 @@ class AppRouter extends StatelessWidget {
         final userRole = authService.currentUser?.role;
 
         // Already logged in and doesn't need password change
-        if (isLoggingIn || isChangingPassword || isSplash) {
+        if (isLoggingIn || isChangingPassword || isSplash || state.uri.path == '/signup') {
           if (userRole == UserRole.admin) {
             return '/admin';
           } else {
@@ -149,10 +147,6 @@ class AppRouter extends StatelessWidget {
               child: CircularProgressIndicator(),
             ),
           ),
-        ),
-        GoRoute(
-          path: '/signup',
-          builder: (context, state) => const SignUpScreen(),
         ),
         GoRoute(
           path: '/login',
